@@ -16,14 +16,14 @@ with open("PitchSamples.pkl", "rb") as file:
 
 MS_PER_SAMPLE = (1/60.0) * 1_000
 
-l_shoulder_pitch = samples[0::8]
-l_shoulder_roll = samples[1::8]
-l_arm_yaw = samples[2::8]
-l_elbow_pitch = samples[3::8]
-l_forearm_yaw = samples[4::8]
-l_wrist_pitch = samples[5::8]
-l_wrist_roll = samples[6::8]
-l_gripper = samples[7::8]
+l_shoulder_pitch = samples[0::19]
+l_shoulder_roll = samples[1::19]
+l_arm_yaw = samples[2::19]
+l_elbow_pitch = samples[3::19]
+l_forearm_yaw = samples[4::19]
+l_wrist_pitch = samples[5::19]
+l_wrist_roll = samples[6::19]
+l_gripper = samples[7::19]
 
 names = [
     "l_shoulder_pitch",
