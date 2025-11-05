@@ -2,6 +2,7 @@ from reachy_sdk import ReachySDK
 import pickle
 import time
 import numpy as np
+import os
 
 TIME_PER_SAMPLE: float = 1/60.0
 samples: np.ndarray = np.array([])
@@ -54,5 +55,9 @@ while run and ((time.time() - start_time) < RECORDING_TIME):
 
 #reachy.turn_off_smoothly("reachy")
 print("\nRecording over, saving results")
-with open("PitchSamples.pkl", "wb") as file:
+# Check for Folder
+if not os.path.exists("./Recordings"):
+    os.mkdir("./Recordings")
+num_of_files: int = len([f for f in os.listdir("./Recordings") if os.path.isfile(f)])
+with open(f"Recordings/JointSamples{num_of_files+1}.pkl", "wb") as file:
     pickle.dump(samples, file)
