@@ -6,29 +6,14 @@ from reachy_sdk.trajectory import goto
 import time
 import scipy.interpolate
 
-SAMPLE_RATE = 1/100.0
+SAMPLE_RATE = 1/60.0
 TEST = False
 
-with open("Recordings/JointSamples1.pkl", "rb") as file:
+with open("Recordings/JointSamples7.pkl", "rb") as file:
     samples = pickle.load(file)
 
-motion_splines = []
-for i in range(19):
-    joint_sample = samples[i::19]
-    spline = scipy.interpolate.make_splrep(list(range(len(joint_sample))), joint_sample, s=100)
-    motion_splines.append(spline)
 
-samples_per_joint = len(samples)/19
-space = list(range(len(joint_sample))) #np.linspace(0, samples_per_joint, int((len(samples)/19)*100))
-spline_points = []
-
-for spline in motion_splines:
-    spline_points.append(spline(space))
-
-if TEST:
-    print(spline_points)
-    exit(0)
-
+print(f"Number of Samples ({len(samples)}) divisible by 19? {len(samples)%19 == 0}")
 reachy = ReachySDK(host="192.168.68.72")
 
 reachy.turn_off_smoothly("reachy")
@@ -57,16 +42,16 @@ recorded_joints = [
 ]
 
 try:
-    first_position = dict(zip(recorded_joints, [l[0] for l in spline_points]))
+    first_position = dict(zip(recorded_joints, samples[:len(recorded_joints)+1:]))
     goto(first_position, 3.0)
 
     i = 0 # Tracks sample index
-    while i < len(spline_points[0]):
+    while i < len(samples):
         for j in range(len(recorded_joints)):
             joint = recorded_joints[j]
-            joint.goal_position = spline_points[j][i]
-        i += 1
-        print(f"{i}/{len(spline_points[0])}", end="\r")
+            joint.goal_position = samples[i+j]
+        i += len(recorded_joints)
+        print(f"{i}/{len(samples)}", end="\r")
         time.sleep(SAMPLE_RATE)
         
     reachy.turn_off_smoothly("reachy")

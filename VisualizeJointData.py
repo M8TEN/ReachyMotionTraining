@@ -11,7 +11,7 @@ def animate(i):
     ax1.clear()
     ax1.plot(ys, xs)
 
-with open("PitchSamples.pkl", "rb") as file:
+with open("Recordings/JointSamples1.pkl", "rb") as file:
     samples = pickle.load(file)
 
 MS_PER_SAMPLE = (1/60.0) * 1_000

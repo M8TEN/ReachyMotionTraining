@@ -6,7 +6,7 @@ import pickle
 SAMPLE_RATE: float = 1/60.0
 
 # Load the data from disk
-with open("PitchSamples.pkl", "rb") as file:
+with open("Recordings/JointSamples1.pkl", "rb") as file:
     all_samples = pickle.load(file)
 
 l_shoulder_pitch = all_samples[0::19]

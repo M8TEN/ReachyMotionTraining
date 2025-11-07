@@ -3,11 +3,12 @@ import pickle
 import time
 import numpy as np
 import os
+import winsound
 
 TIME_PER_SAMPLE: float = 1/60.0
 samples: np.ndarray = np.array([])
 
-reachy: ReachySDK = ReachySDK(host="192.168.68.64")
+reachy: ReachySDK = ReachySDK(host="192.168.68.72")
 
 # reachy.turn_off_smoothly('reachy')
 run = True
@@ -40,13 +41,14 @@ recorded_joints = [
     reachy.joints.neck_yaw
 ]
 
+time.sleep(10.0) # Wait time to settle into teleop
+winsound.Beep(1_000, 200) # Make a sound to let the user in VR Headset know that recording started
 start_time: float = time.time()
 print("Starting Recording")
 while run and ((time.time() - start_time) < RECORDING_TIME):
     try:
         arm_values = np.array([j.present_position for j in recorded_joints])
         samples = np.append(samples, arm_values)
-        print(f"Left arm values at {arm_values}", end="\r")
         time.sleep(TIME_PER_SAMPLE)
     except KeyboardInterrupt:
         print("\nShutting down")
@@ -54,10 +56,14 @@ while run and ((time.time() - start_time) < RECORDING_TIME):
         run = False
 
 #reachy.turn_off_smoothly("reachy")
+winsound.Beep(1_500, 200) # Make a sound to let the user in VR Headset know that recording ended
 print("\nRecording over, saving results")
 # Check for Folder
 if not os.path.exists("./Recordings"):
     os.mkdir("./Recordings")
-num_of_files: int = len([f for f in os.listdir("./Recordings") if os.path.isfile(f)])
-with open(f"Recordings/JointSamples{num_of_files+1}.pkl", "wb") as file:
+num_of_files: int = len([f for f in os.listdir("./Recordings")])
+file_path = f"Recordings/JointSamples{num_of_files+1}.pkl"
+with open(file_path, "wb") as file:
     pickle.dump(samples, file)
+
+print(f"Saved recording to file {file_path}")
