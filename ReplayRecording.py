@@ -1,35 +1,45 @@
-import matplotlib.pyplot as plt
 import pickle
 import numpy as np
 from reachy_sdk import ReachySDK
 from reachy_sdk.trajectory import goto
 import time
 import scipy.interpolate
+import matplotlib.pyplot as plt
 
-SAMPLE_RATE = 1/100.0
+def get_linspace_steps(data_length: int) -> int:
+    num_of_samples = data_length / 19 #19 tracked joints in the robot
+    seconds = num_of_samples / 60.0 #Recording sample rate
+    return int(seconds / SAMPLE_RATE)
+
+SAMPLE_RATE = 1/60.0 #Sample rate for replaying a recording. NOT the same as input recording sample rate!
 TEST = False
 
-with open("Recordings/JointSamples1.pkl", "rb") as file:
-    samples = pickle.load(file)
+with open("Recordings/JointSamples8.pkl", "rb") as file:
+    samples = pickle.load(file) #1D Array containing all joint values in order per time step
 
-motion_splines = []
+motion_splines = [] #List of all BSpline objects constructed from input data. Each Spline represents a single joint in the robot
 for i in range(19):
     joint_sample = samples[i::19]
-    spline = scipy.interpolate.make_splrep(list(range(len(joint_sample))), joint_sample, s=100)
+    spline = scipy.interpolate.make_splrep(list(range(len(joint_sample))), joint_sample)
     motion_splines.append(spline)
 
-samples_per_joint = len(samples)/19
-space = list(range(len(joint_sample))) #np.linspace(0, samples_per_joint, int((len(samples)/19)*100))
+space = np.linspace(0, int(len(samples)/19), get_linspace_steps(len(samples)))
 spline_points = []
 
 for spline in motion_splines:
     spline_points.append(spline(space))
 
 if TEST:
-    print(spline_points)
+    joint_idx: int = 0
+    first_joint_data = samples[joint_idx::19]
+    first_spline = spline_points[joint_idx]
+    plt.plot(list(range(len(first_joint_data))), first_joint_data, label="Original Joint")
+    plt.plot(space, first_spline, label="Spline")
+    plt.legend()
+    plt.show()
     exit(0)
 
-reachy = ReachySDK(host="192.168.68.72")
+reachy = ReachySDK(host="192.168.68.73")
 
 reachy.turn_off_smoothly("reachy")
 reachy.turn_on("reachy")
@@ -68,9 +78,8 @@ try:
         i += 1
         print(f"{i}/{len(spline_points[0])}", end="\r")
         time.sleep(SAMPLE_RATE)
-        
-    reachy.turn_off_smoothly("reachy")
 except KeyboardInterrupt:
+    pass
+finally:
     reachy.turn_off_smoothly("reachy")
-
-reachy.turn_off_smoothly("reachy")
+    reachy.turn_off("reachy")

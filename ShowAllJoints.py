@@ -3,7 +3,7 @@ import pickle
 import scipy.interpolate
 import numpy as np
 
-with open("Recordings/JointSamples5.pkl", "rb") as file:
+with open("Recordings/JointSamples8.pkl", "rb") as file:
     all_samples = pickle.load(file)
 
 joint_names = [

@@ -8,7 +8,7 @@ import winsound
 TIME_PER_SAMPLE: float = 1/60.0
 samples: np.ndarray = np.array([])
 
-reachy: ReachySDK = ReachySDK(host="192.168.68.72")
+reachy: ReachySDK = ReachySDK(host="192.168.68.73")
 
 # reachy.turn_off_smoothly('reachy')
 run = True

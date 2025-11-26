@@ -1,22 +1,19 @@
-import matplotlib.pyplot as plt
 import pickle
-import numpy as np
 from reachy_sdk import ReachySDK
 from reachy_sdk.trajectory import goto
 import time
-import scipy.interpolate
 
 SAMPLE_RATE = 1/60.0
 TEST = False
 
-with open("Recordings/JointSamples7.pkl", "rb") as file:
+with open("Recordings/JointSamples8.pkl", "rb") as file:
     samples = pickle.load(file)
 
 
 print(f"Number of Samples ({len(samples)}) divisible by 19? {len(samples)%19 == 0}")
-reachy = ReachySDK(host="192.168.68.72")
+reachy = ReachySDK(host="192.168.68.73")
 
-reachy.turn_off_smoothly("reachy")
+#reachy.turn_off_smoothly("reachy")
 reachy.turn_on("reachy")
 
 recorded_joints = [
@@ -42,7 +39,7 @@ recorded_joints = [
 ]
 
 try:
-    first_position = dict(zip(recorded_joints, samples[:len(recorded_joints)+1:]))
+    first_position = dict(zip(recorded_joints, samples[:len(recorded_joints):]))
     goto(first_position, 3.0)
 
     i = 0 # Tracks sample index
@@ -53,9 +50,8 @@ try:
         i += len(recorded_joints)
         print(f"{i}/{len(samples)}", end="\r")
         time.sleep(SAMPLE_RATE)
-        
-    reachy.turn_off_smoothly("reachy")
 except KeyboardInterrupt:
+    pass
+finally:
     reachy.turn_off_smoothly("reachy")
-
-reachy.turn_off_smoothly("reachy")
+    reachy.turn_off("reachy")
