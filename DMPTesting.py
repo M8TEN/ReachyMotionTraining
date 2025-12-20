@@ -50,6 +50,9 @@ canonical_matrix = []
 f_target_matrix = []
 r: float = smoothed_samples[0]
 ALPHA_G: float = ALPHA_Z/2.0
+ALPHA_X: float = 4.6
+s: float = 1.0
+phase_matrix = []
 
 # Calculate Phase and f_target matricies
 for time_idx in range(len(smoothed_samples)):
@@ -62,8 +65,34 @@ for time_idx in range(len(smoothed_samples)):
     f_target_matrix.append(f_target)
     r_prime: float = (ALPHA_G * (g-r)) / TAU
     r = r + r_prime * ORIGINAL_SAMPLE_RATE
+    s_prime = (-ALPHA_X * s) / TAU
+    s += s_prime * ORIGINAL_SAMPLE_RATE
+    phase_matrix.append(s)
 
 canonical_matrix = np.array(canonical_matrix)
 f_target_matrix = np.array(f_target_matrix)
+phase_matrix = np.array(phase_matrix)
 
 # Calculate LWPR
+from LWR_Learning import LWR
+
+def calculate_basis(h, c, x):
+    return np.exp(-h * (x-c)**2)
+
+lwr = LWR()
+num_of_kernels = 50
+learned_weights = lwr.learn_weights(f_target_matrix, phase_matrix, num_of_kernels)
+centers = np.linspace(1, 0, num_of_kernels)
+widths = num_of_kernels**2 / (centers**2 + 1e-10)
+
+plot_x_space = np.linspace(1, 0.0, 10_000)
+
+fig, axs = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
+axs[0].set_title("Unweighted Basis Functions")
+axs[1].set_title("Weighted Basis Functions")
+for i in range(num_of_kernels):
+    basis = calculate_basis(widths[i], centers[i], plot_x_space)
+    axs[0].plot(plot_x_space, basis)
+    axs[1].plot(plot_x_space, basis * learned_weights[i])
+plt.gca().invert_xaxis()
+plt.show()
