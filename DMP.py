@@ -1,8 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 from math import exp as mexp
-import pickle
 
 joint_names = [
     "l_shoulder_pitch",
@@ -67,7 +65,7 @@ class DMP():
         f_target = self.calculate_f_target(self.smooth_samples, self.velocity, self.acceleration, goal)
 
         # Learn weights
-        N: int = 50 #50 Basis functions
+        N: int = 50 #Number of Basis functions
         time_distribution = np.linspace(0, self.tau, N)
         self.kernel_centers = np.exp(-self.alpha_x/self.tau*time_distribution)
         self.kernel_widths = np.zeros(N)
@@ -83,67 +81,20 @@ class DMP():
         for i in range(N):
             s: np.ndarray = self.phase * (goal - start) # Since Eta = x(t)(g-y_0)
             s_trans = s.transpose()
-            T_i = np.diag(np.array([self.basis_function(self.kernel_centers[i], self.kernel_widths[i], x) for x in phase]))
+            T_i = np.diag(np.array([self.basis_function(self.kernel_centers[i], self.kernel_widths[i], x) for x in self.phase]))
             w_i = (s_trans @ T_i @ f_target) / (s_trans @ T_i @ s)
             weights.append(w_i)
         
         self.weights = np.array(weights)
-    
-    def learn_global_ridge(self) -> None:
-        start = self.smooth_samples[0]
-        goal = self.smooth_samples[-1]
-        f_target = self.calculate_f_target(self.smooth_samples, self.velocity, self.acceleration, goal)
 
-        # 1. Setup Basis Functions
-        N: int = 50 
-        
-        # IMPROVEMENT: Time-based spacing for better coverage
-        time_distribution = np.linspace(0, self.tau, N)
-        self.kernel_centers = np.exp(-self.alpha_x / self.tau * time_distribution)
-        
-        # IMPROVEMENT: Widths calculated for approx 55% overlap
-        self.kernel_widths = N**2 / (self.kernel_centers**2)
-
-        # 2. Global Ridge Regression (The Fix)
-        # We solve for all weights simultaneously to minimize error
-        
-        # Pre-compute the spatial scaling term 's'
-        # s = x * (g - y0)
-        s = self.phase * (goal - start)
-        
-        # Build the Design Matrix (Phi)
-        # Dimensions: [Time_Steps x Num_Kernels]
-        num_time_steps = len(self.phase)
-        Phi = np.zeros((num_time_steps, N))
-        
-        for t in range(num_time_steps):
-            # Calculate activations for all kernels at time 't'
-            # Note: We must handle the vectorization carefully here
-            psi = np.array([self.basis_function(c, w, self.phase[t]) 
-                           for c, w in zip(self.kernel_centers, self.kernel_widths)])
-            
-            psi_sum = np.sum(psi)
-            
-            # Normalize and scale by spatial term 's'
-            if psi_sum > 1e-10:
-                Phi[t, :] = (psi / psi_sum) * s[t]
-        
-        # 3. Solve the Linear System
-        # w = (Phi^T * Phi + lambda*I)^-1 * Phi^T * f_target
-        regularization = 1e-5 
-        I = np.eye(N) * regularization
-        
-        # Efficient solver
-        self.weights = np.linalg.solve(Phi.T @ Phi + I, Phi.T @ f_target)
-
-    def produce_movement(self, start: float, goal: float, new_tau: float) -> np.ndarray:
+    def produce_movement(self, start: float, goal: float, new_tau: float, time_vector: np.ndarray) -> np.ndarray:
         # Reproduce the movement using learned weights
         new_x = 1
         position = self.smooth_samples[0]
         vel = self.velocity[0]
         reproduced_movement = []
 
-        for t in time_space:
+        for t in time_vector:
             f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, start, goal)
             dx = -self.alpha_x*new_x / new_tau
             new_x += dx * self.sample_rate
@@ -155,48 +106,49 @@ class DMP():
         
         return np.array(reproduced_movement)
 
-def create_phase_vector(time_steps: int):
+def create_phase_vector(alpha_x, tau, sample_rate, time_steps: int):
     x = 1
     phase_values = [x]
     for i in range(time_steps-1):
-        x_prime = -ALPHA_X*x / TAU
-        x += x_prime * SAMPLE_RATE
+        x_prime = -alpha_x*x / tau
+        x += x_prime * sample_rate
         phase_values.append(x)
     return np.array(phase_values)
 
+if __name__ == "__main__":
+    import pickle
+    import matplotlib.pyplot as plt
+    FILE_PATH: str = "Recordings/JointSamples7.pkl"
+    NUMBER_OF_JOINTS: int = 19
+    SAMPLE_RATE: float = 1/60.0
+    ALPHA_X: float = 25
+    ALPHA_Z: float = 50
+    BETA_Z: float = ALPHA_Z/4.0
 
 
-FILE_PATH: str = "Recordings/JointSamples7.pkl"
-NUMBER_OF_JOINTS: int = 19
-SAMPLE_RATE: float = 1/60.0
-ALPHA_X: float = 25
-ALPHA_Z: float = 25
-BETA_Z: float = ALPHA_Z/4
+    # Load in recording data
+    with open(FILE_PATH, "rb") as file:
+        all_samples = pickle.load(file)
 
+    TAU = len(all_samples)/NUMBER_OF_JOINTS*SAMPLE_RATE
+    num_of_samples = int(len(all_samples)/NUMBER_OF_JOINTS)
+    time_space = np.linspace(0, TAU, num_of_samples)
+    joint_dmps = []
 
-# Load in recording data
-with open(FILE_PATH, "rb") as file:
-    all_samples = pickle.load(file)
+    ROWS = 4
+    COLUMNS = 5
 
-TAU = len(all_samples)/NUMBER_OF_JOINTS*SAMPLE_RATE
-num_of_samples = int(len(all_samples)/NUMBER_OF_JOINTS)
-time_space = np.linspace(0, TAU, num_of_samples)
-joint_dmps = []
+    for i in range(NUMBER_OF_JOINTS):
+        joint_samples = all_samples[i::NUMBER_OF_JOINTS]
+        phase = create_phase_vector(ALPHA_X, TAU, SAMPLE_RATE, num_of_samples)
+        dmp = DMP(SAMPLE_RATE, TAU, ALPHA_Z, ALPHA_X, joint_samples, phase)
+        joint_dmps.append(dmp)
+        dmp.learn_weights()
+        reproduced_movement = dmp.produce_movement(joint_samples[0], joint_samples[-1], TAU, phase)
+        plt.subplot(ROWS, COLUMNS, i+1)
+        plt.title(joint_names[i])
+        plt.plot(time_space, joint_samples, label="Original Movement")
+        plt.plot(time_space, reproduced_movement, label="Reproduced Movement")
 
-ROWS = 4
-COLUMNS = 5
-
-for i in range(NUMBER_OF_JOINTS):
-    joint_samples = all_samples[i::NUMBER_OF_JOINTS]
-    phase = create_phase_vector(num_of_samples)
-    dmp = DMP(SAMPLE_RATE, TAU, ALPHA_Z, ALPHA_X, joint_samples, phase)
-    joint_dmps.append(dmp)
-    dmp.learn_weights()
-    reproduced_movement = dmp.produce_movement(joint_samples[0], joint_samples[-1], TAU)
-    plt.subplot(ROWS, COLUMNS, i+1)
-    plt.title(joint_names[i])
-    plt.plot(time_space, joint_samples, label="Original Movement")
-    plt.plot(time_space, reproduced_movement, label="Reproduced Movement")
-
-plt.legend()
-plt.show()
+    plt.legend()
+    plt.show()
