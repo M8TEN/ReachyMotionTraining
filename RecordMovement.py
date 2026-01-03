@@ -3,67 +3,71 @@ import pickle
 import time
 import numpy as np
 import os
-import winsound
 
-TIME_PER_SAMPLE: float = 1/60.0
-samples: np.ndarray = np.array([])
+class MotionRecorder():
+    def __init__(self, sample_rate: float = 1/60.0, robot_ip: str = "localhost") -> None:
+        self.sample_rate: float = sample_rate
+        self.samples: list = []
+        self.recording: bool = False
+        self.start_time: float = time.time()
+        self.reachy: ReachySDK = ReachySDK(host=robot_ip)
+        self.recorded_joints: list = [
+            self.reachy.joints.l_shoulder_pitch,
+            self.reachy.joints.l_shoulder_roll,
+            self.reachy.joints.l_arm_yaw,
+            self.reachy.joints.l_elbow_pitch,
+            self.reachy.joints.l_forearm_yaw,
+            self.reachy.joints.l_wrist_pitch,
+            self.reachy.joints.l_wrist_roll,
+            self.reachy.joints.l_gripper,
+            self.reachy.joints.r_shoulder_pitch,
+            self.reachy.joints.r_shoulder_roll,
+            self.reachy.joints.r_arm_yaw,
+            self.reachy.joints.r_elbow_pitch,
+            self.reachy.joints.r_forearm_yaw,
+            self.reachy.joints.r_wrist_pitch,
+            self.reachy.joints.r_wrist_roll,
+            self.reachy.joints.r_gripper,
+            self.reachy.joints.neck_pitch,
+            self.reachy.joints.neck_roll,
+            self.reachy.joints.neck_yaw
+        ]
+    
+    async def update(self):
+        if self.recording:
+            joint_values: list = [j.present_position for j in self.recorded_joints]
+            self.samples += joint_values
 
-reachy: ReachySDK = ReachySDK(host="192.168.68.73")
+    def find_higest_num(self, dir: str) -> int:
+        highest_num: int = 1
+        all_file_names: list = [f for f in os.listdir(dir) if os.path.isfile(f)]
+        for file_name in all_file_names:
+            dot_idx: int = file_name.rfind(".")-1
+            if (dot_idx == -1): dot_idx = len(file_name)-1
+            num_str: str = ""
+            while (file_name[dot_idx] >= 0 and file_name[dot_idx].isdigit()):
+                num_str = file_name[dot_idx] + num_str
+                dot_idx -= 1
+            highest_num = max(highest_num, int(num_str))
+        
+        return highest_num
 
-# reachy.turn_off_smoothly('reachy')
-run = True
-
-try:
-    RECORDING_TIME: float = float(input("How many seconds should the recording last? "))
-except ValueError:
-    print("Value must be a number")
-    exit(1)
-
-recorded_joints = [
-    reachy.joints.l_shoulder_pitch,
-    reachy.joints.l_shoulder_roll,
-    reachy.joints.l_arm_yaw,
-    reachy.joints.l_elbow_pitch,
-    reachy.joints.l_forearm_yaw,
-    reachy.joints.l_wrist_pitch,
-    reachy.joints.l_wrist_roll,
-    reachy.joints.l_gripper,
-    reachy.joints.r_shoulder_pitch,
-    reachy.joints.r_shoulder_roll,
-    reachy.joints.r_arm_yaw,
-    reachy.joints.r_elbow_pitch,
-    reachy.joints.r_forearm_yaw,
-    reachy.joints.r_wrist_pitch,
-    reachy.joints.r_wrist_roll,
-    reachy.joints.r_gripper,
-    reachy.joints.neck_pitch,
-    reachy.joints.neck_roll,
-    reachy.joints.neck_yaw
-]
-
-time.sleep(10.0) # Wait time to settle into teleop
-winsound.Beep(1_000, 200) # Make a sound to let the user in VR Headset know that recording started
-start_time: float = time.time()
-print("Starting Recording")
-while run and ((time.time() - start_time) < RECORDING_TIME):
-    try:
-        arm_values = np.array([j.present_position for j in recorded_joints])
-        samples = np.append(samples, arm_values)
-        time.sleep(TIME_PER_SAMPLE)
-    except KeyboardInterrupt:
-        print("\nShutting down")
-        reachy.turn_off_smoothly("reachy")
-        run = False
-
-#reachy.turn_off_smoothly("reachy")
-winsound.Beep(1_500, 200) # Make a sound to let the user in VR Headset know that recording ended
-print("\nRecording over, saving results")
-# Check for Folder
-if not os.path.exists("./Recordings"):
-    os.mkdir("./Recordings")
-num_of_files: int = len([f for f in os.listdir("./Recordings")])
-file_path = f"Recordings/JointSamples{num_of_files+1}.pkl"
-with open(file_path, "wb") as file:
-    pickle.dump(samples, file)
-
-print(f"Saved recording to file {file_path}")
+    def start_recording(self) -> None:
+        self.samples.clear()
+        self.start_time = time.time()
+        self.recording = True
+    
+    def stop_recording(self) -> None:
+        self.recording = False
+        print(f"Recorded for {time.time() - self.start_time} seconds")
+        self.save_recording()
+    
+    def save_recording(self, dir: str = "Recordings") -> None:
+        if len(self.samples) == 0: return
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+        movement_num: int = self.find_higest_num(dir)+1
+        new_file_path: str = f"{dir}/JointSamples{movement_num}.pkl"
+        with open(new_file_path, "wb") as file:
+            pickle.dump(np.array(self.samples), file)
+        print(f"Saved recording to '{new_file_path}'")
