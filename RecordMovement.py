@@ -33,7 +33,7 @@ class MotionRecorder():
             self.reachy.joints.neck_yaw
         ]
     
-    async def update(self):
+    def update(self):
         if self.recording:
             joint_values: list = [j.present_position for j in self.recorded_joints]
             self.samples += joint_values
@@ -71,3 +71,26 @@ class MotionRecorder():
         with open(new_file_path, "wb") as file:
             pickle.dump(np.array(self.samples), file)
         print(f"Saved recording to '{new_file_path}'")
+
+if __name__ == "__main__":
+    try:
+        time_to_record = float(input("How long should the recording be? "))
+    except TypeError:
+        print("Input must be int or float")
+        exit(1)
+    
+    recorder = MotionRecorder(1/100.0)
+    WAIT_DELAY: float = 15.0
+    time.sleep(WAIT_DELAY)
+    recorded_time: float = 0.0
+    print("\a")
+    recorder.start_recording()
+    while recorded_time < time_to_record:
+        recorder.update()
+        time.sleep(recorder.sample_rate)
+        recorded_time += recorder.sample_rate
+    
+    recorder.stop_recording()
+    print("\a")
+    print("\a")
+    print("Recording finished")
