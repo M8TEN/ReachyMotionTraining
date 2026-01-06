@@ -39,7 +39,7 @@ class MotionRecorder():
             self.samples += joint_values
 
     def find_higest_num(self, dir: str) -> int:
-        highest_num: int = 1
+        highest_num: int = 0
         all_file_names: list = [f for f in os.listdir(dir) if os.path.isfile(f)]
         for file_name in all_file_names:
             dot_idx: int = file_name.rfind(".")-1
