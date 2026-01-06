@@ -27,14 +27,16 @@ joint_names = [
 class DMP():
     def __init__(self, sample_rate: float, tau: float, alpha_z: float, alpha_x: float, joint_path: np.ndarray, phase: np.ndarray):
         self.sample_rate = sample_rate
+        self.correction_term = max(joint_path) - min(joint_path)
         self.alpha_z = alpha_z
         self.beta_z = alpha_z/4.0
         self.alpha_x = alpha_x
         self.tau = tau
         self.phase = phase
-        self.smooth_samples = savgol_filter(joint_path, 59, 3)
-        self.velocity = savgol_filter(joint_path, 59, 3, 1, self.sample_rate)
-        self.acceleration = savgol_filter(joint_path, 59, 3, 2, self.sample_rate)
+        window_size = 21
+        self.smooth_samples = savgol_filter(joint_path, window_size, 3)
+        self.velocity = savgol_filter(joint_path, window_size, 3, 1, self.sample_rate)
+        self.acceleration = savgol_filter(joint_path, window_size, 3, 2, self.sample_rate)
         self.weights = np.array([])
         self.kernel_centers = np.array([])
         self.kernel_widths = np.array([])
@@ -46,7 +48,7 @@ class DMP():
     def basis_function(self, center, width, x):
         return mexp(-width * (x - center)**2)
 
-    def forcing_function(self, kernels, widths, weights, phase, start, goal) -> float:
+    def forcing_function(self, kernels, widths, weights, phase, A) -> float:
         numerator = 0
         denominator = 0
         for i in range(len(kernels)):
@@ -57,7 +59,7 @@ class DMP():
         if abs(denominator) < 1e-10:
             return 0
 
-        return numerator/denominator * phase * (goal - start)
+        return numerator/denominator * phase * A
 
     def learn_weights(self) -> None:
         start = self.smooth_samples[0]
@@ -65,7 +67,7 @@ class DMP():
         f_target = self.calculate_f_target(self.smooth_samples, self.velocity, self.acceleration, goal)
 
         # Learn weights
-        N: int = 50 #Number of Basis functions
+        N: int = 200 #Number of Basis functions
         time_distribution = np.linspace(0, self.tau, N)
         self.kernel_centers = np.exp(-self.alpha_x/self.tau*time_distribution)
         self.kernel_widths = np.zeros(N)
@@ -79,7 +81,7 @@ class DMP():
 
         # w[i] = (s.transposed * T[i] * f_target) / (s.transposed * T[i] * s)
         for i in range(N):
-            s: np.ndarray = self.phase * (goal - start) # Since Eta = x(t)(g-y_0)
+            s: np.ndarray = self.phase * self.correction_term # Since Eta = x(t)(g-y_0)
             s_trans = s.transpose()
             T_i = np.diag(np.array([self.basis_function(self.kernel_centers[i], self.kernel_widths[i], x) for x in self.phase]))
             w_i = (s_trans @ T_i @ f_target) / (s_trans @ T_i @ s)
@@ -95,7 +97,7 @@ class DMP():
         reproduced_movement = []
 
         for t in time_vector:
-            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, start, goal)
+            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, self.correction_term)
             dx = -self.alpha_x*new_x / new_tau
             new_x += dx * self.sample_rate
             dz = (self.alpha_z * (self.beta_z * (goal - position) - vel) + f) / new_tau
