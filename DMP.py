@@ -118,13 +118,26 @@ def create_phase_vector(alpha_x, tau, sample_rate, time_steps: int):
 if __name__ == "__main__":
     import pickle
     import matplotlib.pyplot as plt
-    FILE_PATH: str = "Recordings/JointSamples7.pkl"
+    import sys
+    from math import sqrt, ceil
+    FILE_PATH: str = "Recordings/JointSamples3.pkl"
     NUMBER_OF_JOINTS: int = 19
     SAMPLE_RATE: float = 1/60.0
     ALPHA_X: float = 25
     ALPHA_Z: float = 50
     BETA_Z: float = ALPHA_Z/4.0
 
+    joints_to_display: list = []
+
+    if len(sys.argv) > 1:
+        for i in range(1, len(sys.argv)):
+            joint_idx: int = joint_names.index(sys.argv[i])
+            if joint_idx != -1:
+                joints_to_display.append(joint_idx)
+            else:
+                print(f"Could not find joint '{sys.argv[i]}'")
+    else:
+        joints_to_display = list(range(len(joint_names)))
 
     # Load in recording data
     with open(FILE_PATH, "rb") as file:
@@ -135,18 +148,20 @@ if __name__ == "__main__":
     time_space = np.linspace(0, TAU, num_of_samples)
     joint_dmps = []
 
-    ROWS = 4
-    COLUMNS = 5
+    COLUMNS = ceil(sqrt(len(joints_to_display)))
+    ROWS = ceil(len(joints_to_display)/COLUMNS)
 
-    for i in range(NUMBER_OF_JOINTS):
-        joint_samples = all_samples[i::NUMBER_OF_JOINTS]
+    for i in range(len(joints_to_display)):
+        joint_idx: int = joints_to_display[i]
+        print(f"Calculating DMP for joint '{joint_names[joint_idx]}'")
+        joint_samples = all_samples[joint_idx::NUMBER_OF_JOINTS]
         phase = create_phase_vector(ALPHA_X, TAU, SAMPLE_RATE, num_of_samples)
         dmp = DMP(SAMPLE_RATE, TAU, ALPHA_Z, ALPHA_X, joint_samples, phase)
         joint_dmps.append(dmp)
         dmp.learn_weights()
         reproduced_movement = dmp.produce_movement(joint_samples[0], joint_samples[-1], TAU, phase)
         plt.subplot(ROWS, COLUMNS, i+1)
-        plt.title(joint_names[i])
+        plt.title(joint_names[joint_idx])
         plt.plot(time_space, joint_samples, label="Original Movement")
         plt.plot(time_space, reproduced_movement, label="Reproduced Movement")
 
