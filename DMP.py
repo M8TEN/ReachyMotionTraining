@@ -92,12 +92,13 @@ class DMP():
     def produce_movement(self, start: float, goal: float, new_tau: float, time_vector: np.ndarray) -> np.ndarray:
         # Reproduce the movement using learned weights
         new_x = 1
-        position = self.smooth_samples[0]
+        position = start #self.smooth_samples[0]
         vel = self.velocity[0]
         reproduced_movement = []
+        new_correction = goal-start
 
         for t in time_vector:
-            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, self.correction_term)
+            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, new_correction)
             dx = -self.alpha_x*new_x / new_tau
             new_x += dx * self.sample_rate
             dz = (self.alpha_z * (self.beta_z * (goal - position) - vel) + f) / new_tau
@@ -122,7 +123,6 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import sys
     from math import sqrt, ceil
-    FILE_PATH: str = "Recordings/JointSamples3.pkl"
     NUMBER_OF_JOINTS: int = 19
     SAMPLE_RATE: float = 1/60.0
     ALPHA_X: float = 25
@@ -130,9 +130,17 @@ if __name__ == "__main__":
     BETA_Z: float = ALPHA_Z/4.0
 
     joints_to_display: list = []
+    sample_to_load: int = 1
 
     if len(sys.argv) > 1:
-        for i in range(1, len(sys.argv)):
+        try:
+            sample_to_load = int(sys.argv[1])
+        except ValueError as e:
+            print(e)
+            print("Trying to load sample 1 instead")
+            sample_to_load = 1
+    if len(sys.argv) > 2:
+        for i in range(2, len(sys.argv)):
             joint_idx: int = joint_names.index(sys.argv[i])
             if joint_idx != -1:
                 joints_to_display.append(joint_idx)
@@ -141,9 +149,17 @@ if __name__ == "__main__":
     else:
         joints_to_display = list(range(len(joint_names)))
 
-    # Load in recording data
-    with open(FILE_PATH, "rb") as file:
-        all_samples = pickle.load(file)
+
+    FILE_PATH: str = f"Recordings/JointSamples{sample_to_load}.pkl"
+    try:
+        # Load in recording data
+        with open(FILE_PATH, "rb") as file:
+            all_samples = pickle.load(file)
+        print(f"Loaded file '{FILE_PATH}'")
+    except FileNotFoundError:
+        print(f"Could not find file {FILE_PATH}")
+        exit(1)
+
 
     TAU = len(all_samples)/NUMBER_OF_JOINTS*SAMPLE_RATE
     num_of_samples = int(len(all_samples)/NUMBER_OF_JOINTS)
