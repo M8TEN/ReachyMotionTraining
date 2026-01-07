@@ -27,14 +27,16 @@ joint_names = [
 class DMP():
     def __init__(self, sample_rate: float, tau: float, alpha_z: float, alpha_x: float, joint_path: np.ndarray, phase: np.ndarray):
         self.sample_rate = sample_rate
+        self.correction_term = max(joint_path) - min(joint_path)
         self.alpha_z = alpha_z
         self.beta_z = alpha_z/4.0
         self.alpha_x = alpha_x
         self.tau = tau
         self.phase = phase
-        self.smooth_samples = savgol_filter(joint_path, 59, 3)
-        self.velocity = savgol_filter(joint_path, 59, 3, 1, self.sample_rate)
-        self.acceleration = savgol_filter(joint_path, 59, 3, 2, self.sample_rate)
+        window_size = 21
+        self.smooth_samples = savgol_filter(joint_path, window_size, 3)
+        self.velocity = savgol_filter(joint_path, window_size, 3, 1, self.sample_rate)
+        self.acceleration = savgol_filter(joint_path, window_size, 3, 2, self.sample_rate)
         self.weights = np.array([])
         self.kernel_centers = np.array([])
         self.kernel_widths = np.array([])
@@ -46,7 +48,7 @@ class DMP():
     def basis_function(self, center, width, x):
         return mexp(-width * (x - center)**2)
 
-    def forcing_function(self, kernels, widths, weights, phase, start, goal) -> float:
+    def forcing_function(self, kernels, widths, weights, phase, A) -> float:
         numerator = 0
         denominator = 0
         for i in range(len(kernels)):
@@ -57,7 +59,7 @@ class DMP():
         if abs(denominator) < 1e-10:
             return 0
 
-        return numerator/denominator * phase * (goal - start)
+        return numerator/denominator * phase * A
 
     def learn_weights(self) -> None:
         start = self.smooth_samples[0]
@@ -65,7 +67,7 @@ class DMP():
         f_target = self.calculate_f_target(self.smooth_samples, self.velocity, self.acceleration, goal)
 
         # Learn weights
-        N: int = 50 #Number of Basis functions
+        N: int = 200 #Number of Basis functions
         time_distribution = np.linspace(0, self.tau, N)
         self.kernel_centers = np.exp(-self.alpha_x/self.tau*time_distribution)
         self.kernel_widths = np.zeros(N)
@@ -79,7 +81,7 @@ class DMP():
 
         # w[i] = (s.transposed * T[i] * f_target) / (s.transposed * T[i] * s)
         for i in range(N):
-            s: np.ndarray = self.phase * (goal - start) # Since Eta = x(t)(g-y_0)
+            s: np.ndarray = self.phase * self.correction_term # Since Eta = x(t)(g-y_0)
             s_trans = s.transpose()
             T_i = np.diag(np.array([self.basis_function(self.kernel_centers[i], self.kernel_widths[i], x) for x in self.phase]))
             w_i = (s_trans @ T_i @ f_target) / (s_trans @ T_i @ s)
@@ -95,7 +97,7 @@ class DMP():
         reproduced_movement = []
 
         for t in time_vector:
-            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, start, goal)
+            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, self.correction_term)
             dx = -self.alpha_x*new_x / new_tau
             new_x += dx * self.sample_rate
             dz = (self.alpha_z * (self.beta_z * (goal - position) - vel) + f) / new_tau
@@ -118,13 +120,26 @@ def create_phase_vector(alpha_x, tau, sample_rate, time_steps: int):
 if __name__ == "__main__":
     import pickle
     import matplotlib.pyplot as plt
-    FILE_PATH: str = "Recordings/JointSamples7.pkl"
+    import sys
+    from math import sqrt, ceil
+    FILE_PATH: str = "Recordings/JointSamples3.pkl"
     NUMBER_OF_JOINTS: int = 19
     SAMPLE_RATE: float = 1/60.0
     ALPHA_X: float = 25
     ALPHA_Z: float = 50
     BETA_Z: float = ALPHA_Z/4.0
 
+    joints_to_display: list = []
+
+    if len(sys.argv) > 1:
+        for i in range(1, len(sys.argv)):
+            joint_idx: int = joint_names.index(sys.argv[i])
+            if joint_idx != -1:
+                joints_to_display.append(joint_idx)
+            else:
+                print(f"Could not find joint '{sys.argv[i]}'")
+    else:
+        joints_to_display = list(range(len(joint_names)))
 
     # Load in recording data
     with open(FILE_PATH, "rb") as file:
@@ -135,18 +150,20 @@ if __name__ == "__main__":
     time_space = np.linspace(0, TAU, num_of_samples)
     joint_dmps = []
 
-    ROWS = 4
-    COLUMNS = 5
+    COLUMNS = ceil(sqrt(len(joints_to_display)))
+    ROWS = ceil(len(joints_to_display)/COLUMNS)
 
-    for i in range(NUMBER_OF_JOINTS):
-        joint_samples = all_samples[i::NUMBER_OF_JOINTS]
+    for i in range(len(joints_to_display)):
+        joint_idx: int = joints_to_display[i]
+        print(f"Calculating DMP for joint '{joint_names[joint_idx]}'")
+        joint_samples = all_samples[joint_idx::NUMBER_OF_JOINTS]
         phase = create_phase_vector(ALPHA_X, TAU, SAMPLE_RATE, num_of_samples)
         dmp = DMP(SAMPLE_RATE, TAU, ALPHA_Z, ALPHA_X, joint_samples, phase)
         joint_dmps.append(dmp)
         dmp.learn_weights()
         reproduced_movement = dmp.produce_movement(joint_samples[0], joint_samples[-1], TAU, phase)
         plt.subplot(ROWS, COLUMNS, i+1)
-        plt.title(joint_names[i])
+        plt.title(joint_names[joint_idx])
         plt.plot(time_space, joint_samples, label="Original Movement")
         plt.plot(time_space, reproduced_movement, label="Reproduced Movement")
 

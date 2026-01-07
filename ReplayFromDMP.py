@@ -9,9 +9,9 @@ with open("Recordings/JointSamples8.pkl", "rb") as file:
 
 NUMBER_OF_JOINTS: int = 19
 SAMPLE_RATE: float = 1/100.0
-ALPHA_X: float = 25
-ALPHA_Z: float = 25
-BETA_Z: float = ALPHA_Z/4
+ALPHA_X: float = 25.0
+ALPHA_Z: float = 25.0
+BETA_Z: float = ALPHA_Z/4.0
 SAMPLE_RATE = 1/60.0
 TAU = len(all_samples)/NUMBER_OF_JOINTS*SAMPLE_RATE
 NUMBER_OF_SAMPLES: int = int(len(all_samples)/NUMBER_OF_JOINTS)
