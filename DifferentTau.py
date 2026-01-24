@@ -44,8 +44,10 @@ dmp: DMP = DMP(SAMPLE_RATE, TAU, ALPHA_Z, ALPHA_X, joint_samples, phase)
 dmp.learn_weights()
 
 FACTOR: float = 2
+new_motion_start = joint_samples[0]
+new_motion_end = joint_samples[-1]
 new_time = create_phase_vector(ALPHA_X, TAU*FACTOR, SAMPLE_RATE, int(len(joint_samples)*FACTOR))
-new_motion = dmp.produce_movement(-30.2, -50, TAU*FACTOR, new_time)
+new_motion = dmp.produce_movement(new_motion_start, new_motion_end, TAU*FACTOR, new_time)
 
 plt.subplot(1, 2, 1)
 plt.title("Original " + joint_names[joint_to_display])

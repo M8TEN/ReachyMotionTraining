@@ -4,7 +4,7 @@ from DMP import DMP, create_phase_vector, joint_names
 import pickle
 from time import sleep
 
-with open("Recordings/JointSamples8.pkl", "rb") as file:
+with open("Recordings/JointSamples7.pkl", "rb") as file:
     all_samples = pickle.load(file)
 
 NUMBER_OF_JOINTS: int = 19
@@ -30,7 +30,9 @@ for i in range(NUMBER_OF_JOINTS):
     joint_samples = all_samples[i::NUMBER_OF_JOINTS]
     joint_dmp: DMP = DMP(SAMPLE_RATE, TAU, ALPHA_Z, ALPHA_X, joint_samples, phase_vector)
     joint_dmp.learn_weights()
-    recreated_path = joint_dmp.produce_movement(joint_samples[0], joint_samples[-1], NEW_TAU, reproduce_phase)
+    path_start = joint_samples[0]
+    path_end = joint_samples[-1]
+    recreated_path = joint_dmp.produce_movement(path_start, path_end, NEW_TAU, reproduce_phase)
     print(f"{len(recreated_path)} steps in new movement of joint '{joint_names[i]}'")
     movement_paths.append(recreated_path)
 
@@ -63,7 +65,7 @@ reachy.turn_on("reachy")
 try:
     first_position = dict(zip(recorded_joints, [p[0] for p in movement_paths]))
     goto(first_position, 3.0)
-
+    print(reachy.r_arm.forward_kinematics())
     for i in range(NEW_TIME_STEPS):
         for j in range(NUMBER_OF_JOINTS):
             recorded_joints[j].goal_position = movement_paths[j][i]

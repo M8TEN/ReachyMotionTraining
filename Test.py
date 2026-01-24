@@ -2,8 +2,13 @@ import asyncio
 from time import sleep
 #from RecordMovement import MotionRecorder
 
+QUEST_IP: str = "192.168.68.62"
 PORT: int = 50056
 SAMPLE_RATE: float = 1/100.0
+
+client_reader = None
+client_writer = None
+connection_event = asyncio.Event()
 
 class Test():
     def __init__(self):
@@ -33,16 +38,15 @@ class Test():
                 print("No samples recorded")
 
 async def establish_connection(ip: str = "127.0.0.1", port=PORT):
-    connected: bool = False
-    while not connected:
-        try:
-            reader, writer = await asyncio.open_connection(ip, port)
-            connected = True
-        except ConnectionRefusedError:
-            print("Could not connect, trying again in 5s")
-            sleep(5)
-    
-    return reader, writer
+    print("Starting Server")
+    await asyncio.start_server(on_client_connected, port=port)
+
+def on_client_connected(reader, writer):
+    print("Client connected")
+    global client_reader, client_writer, connection_event
+    client_reader = reader
+    client_writer = writer
+    connection_event.set()
 
 async def wait_on_command(reader: asyncio.StreamReader, start_event: asyncio.Event, stop_event: asyncio.Event, halt_event: asyncio.Event):
     while not halt_event.is_set():
@@ -56,7 +60,7 @@ async def wait_on_command(reader: asyncio.StreamReader, start_event: asyncio.Eve
             stop_event.set()
             stop_event.clear()
         elif command_type == 2:
-            print("Connection closed by Server")
+            print("Connection closed by Client")
             halt_event.set()
             start_event.set()
             stop_event.set()
@@ -69,9 +73,9 @@ async def main():
     update_task = asyncio.create_task(recorder.update(halt_event))
     start_task = asyncio.create_task(recorder.start_recording(start_event, halt_event))
     stop_task = asyncio.create_task(recorder.stop_recording(stop_event, halt_event))
-    reader, writer = await establish_connection()
-    command_task = asyncio.create_task(wait_on_command(reader, start_event, stop_event, halt_event))
-    print("Connected to Server")
+    await establish_connection()
+    await connection_event.wait()
+    command_task = asyncio.create_task(wait_on_command(client_reader, start_event, stop_event, halt_event))
     await start_task
     await stop_task
     await update_task

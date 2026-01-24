@@ -98,7 +98,7 @@ class DMP():
         new_correction = goal-start
 
         for t in time_vector:
-            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, new_correction)
+            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, self.correction_term)
             dx = -self.alpha_x*new_x / new_tau
             new_x += dx * self.sample_rate
             dz = (self.alpha_z * (self.beta_z * (goal - position) - vel) + f) / new_tau
