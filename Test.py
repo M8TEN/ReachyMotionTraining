@@ -1,8 +1,7 @@
 import asyncio
 from time import sleep
-#from RecordMovement import MotionRecorder
+from RecordMovement import MotionRecorder
 
-QUEST_IP: str = "192.168.68.62"
 PORT: int = 50056
 SAMPLE_RATE: float = 1/100.0
 
@@ -37,7 +36,7 @@ class Test():
             else:
                 print("No samples recorded")
 
-async def establish_connection(ip: str = "127.0.0.1", port=PORT):
+async def establish_connection(port=PORT):
     print("Starting Server")
     await asyncio.start_server(on_client_connected, port=port)
 
@@ -69,7 +68,7 @@ async def main():
     start_event = asyncio.Event()
     stop_event = asyncio.Event()
     halt_event = asyncio.Event()
-    recorder = Test()
+    recorder = MotionRecorder(sample_rate=SAMPLE_RATE)
     update_task = asyncio.create_task(recorder.update(halt_event))
     start_task = asyncio.create_task(recorder.start_recording(start_event, halt_event))
     stop_task = asyncio.create_task(recorder.stop_recording(stop_event, halt_event))

@@ -3,6 +3,8 @@ import pickle
 import time
 import numpy as np
 import os
+import asyncio
+from DMP import DMP, ALPHA_X, ALPHA_Z, joint_names
 
 class MotionRecorder():
     def __init__(self, sample_rate: float = 1/60.0, robot_ip: str = "localhost") -> None:
@@ -33,10 +35,12 @@ class MotionRecorder():
             self.reachy.joints.neck_yaw
         ]
     
-    def update(self):
-        if self.recording:
-            joint_values: list = [j.present_position for j in self.recorded_joints]
-            self.samples += joint_values
+    async def update(self, halt_event: asyncio.Event):
+        while not halt_event.is_set():
+            if self.recording:
+                joint_values: list = [j.present_position for j in self.recorded_joints]
+                self.samples += joint_values
+            await asyncio.sleep(self.sample_rate)
 
     def find_higest_num(self, dir: str) -> int:
         highest_num: int = 0
@@ -52,24 +56,49 @@ class MotionRecorder():
         
         return highest_num
 
-    def start_recording(self) -> None:
-        self.samples.clear()
-        self.start_time = time.time()
-        self.recording = True
+    async def start_recording(self, start_event: asyncio.Event, halt_event: asyncio.Event) -> None:
+        while not halt_event.is_set():
+            await start_event.wait()
+            print("Starting recording")
+            self.samples.clear()
+            self.start_time = time.time()
+            self.recording = True
     
-    def stop_recording(self) -> None:
-        self.recording = False
-        print(f"Recorded for {time.time() - self.start_time} seconds")
-        self.save_recording()
+    async def stop_recording(self, stop_event: asyncio.Event, halt_event: asyncio.Event) -> None:
+        while not halt_event.is_set():
+            await stop_event.wait()
+            self.recording = False
+            recording_time: float = time.time() - self.start_time
+            print(f"Recorded for {recording_time} seconds")
+            if len(self.samples) > 0:
+                self.samples = np.array(self.samples)
+                dmps = self.calculate_dmps()
+                print("Saving recording..")
+                self.save_recording(dmps)
     
-    def save_recording(self, dir: str = "Recordings") -> None:
-        if len(self.samples) == 0: return
+    def calculate_dmps(self) -> list:
+        dmps: list = []
+        number_of_samples: int = len(self.samples)
+        number_of_joints: int = len(self.recorded_joints)
+        tau: float = (number_of_samples / number_of_joints) * self.sample_rate
+        for i in range(number_of_joints):
+            print(f"Calculating DMP for {joint_names[i]}")
+            current_samples = self.samples[i::number_of_joints]
+            phase = DMP.create_phase_vector(ALPHA_X, tau, self.sample_rate, len(current_samples))
+            dmp = DMP(self.sample_rate, tau, ALPHA_Z, ALPHA_X, current_samples, phase)
+            dmp.learn_weights()
+            dmps.append(dmp)
+
+        return dmps
+
+    def save_recording(self, dmps: list, dir: str = "Movements") -> None:
+        if len(dmps) == 0: return
         if not os.path.exists(dir):
             os.mkdir(dir)
         movement_num: int = self.find_higest_num(dir)+1
-        new_file_path: str = f"{dir}/JointSamples{movement_num}.pkl"
+        new_file_path: str = f"{dir}/Movement{movement_num}.pkl"
         with open(new_file_path, "wb") as file:
-            pickle.dump(np.array(self.samples), file)
+            pickle.dump(np.array(dmps), file)
         print(f"Saved recording to '{new_file_path}'")
 
 if __name__ == "__main__":

@@ -109,14 +109,15 @@ class DMP():
         
         return np.array(reproduced_movement)
 
-def create_phase_vector(alpha_x, tau, sample_rate, time_steps: int):
-    x = 1
-    phase_values = [x]
-    for i in range(time_steps-1):
-        x_prime = -alpha_x*x / tau
-        x += x_prime * sample_rate
-        phase_values.append(x)
-    return np.array(phase_values)
+    @staticmethod
+    def create_phase_vector(alpha_x, tau, sample_rate, time_steps: int):
+        x = 1
+        phase_values = [x]
+        for i in range(time_steps-1):
+            x_prime = -alpha_x*x / tau
+            x += x_prime * sample_rate
+            phase_values.append(x)
+        return np.array(phase_values)
 
 if __name__ == "__main__":
     import pickle
@@ -173,7 +174,7 @@ if __name__ == "__main__":
         joint_idx: int = joints_to_display[i]
         print(f"Calculating DMP for joint '{joint_names[joint_idx]}'")
         joint_samples = all_samples[joint_idx::NUMBER_OF_JOINTS]
-        phase = create_phase_vector(ALPHA_X, TAU, SAMPLE_RATE, num_of_samples)
+        phase = DMP.create_phase_vector(ALPHA_X, TAU, SAMPLE_RATE, num_of_samples)
         dmp = DMP(SAMPLE_RATE, TAU, ALPHA_Z, ALPHA_X, joint_samples, phase)
         joint_dmps.append(dmp)
         dmp.learn_weights()
