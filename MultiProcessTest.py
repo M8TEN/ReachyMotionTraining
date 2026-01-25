@@ -67,7 +67,7 @@ def read_commands(recorder_flag):
 
 if __name__ == "__main__":
     recorder = Test()
-    recorder_flag = mp.Value("B", 0)
+    recorder_flag = mp.Value("B", 0) # Initialize flag as unsigned char (1 Byte) with value 0
     recorder_process = mp.Process(target=update_loop, args=(recorder, recorder_flag,))
     command_process = mp.Process(target=read_commands, args=(recorder_flag,))
     recorder_process.start()
