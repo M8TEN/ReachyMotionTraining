@@ -3,9 +3,8 @@ from reachy_sdk.trajectory import goto
 from DMP import DMP, ALPHA_X, SAMPLE_RATE, NUMBER_OF_JOINTS
 import pickle
 from time import sleep
-import numpy as np
 
-def play_movement(file_path: str, new_tau: float):
+def play_movement(reachy: ReachySDK, file_path: str, new_tau: float):
 
     with open(file_path, "rb") as file:
         all_dmps = pickle.load(file)
@@ -16,16 +15,13 @@ def play_movement(file_path: str, new_tau: float):
 
     for i in range(len(all_dmps)):
         dmp: DMP = all_dmps[i]
-        original_time_steps: int = int(dmp.tau / dmp.sample_rate)
-        time_space = np.linspace(0, new_tau, int(new_tau / dmp.sample_rate))
-        print(original_time_steps, len(dmp.smooth_samples))
-        phase = DMP.create_phase_vector(ALPHA_X, new_tau, SAMPLE_RATE, time_space)
-        new_movement_path = dmp.produce_movement(dmp.smooth_samples[0], dmp.smooth_samples[-1], dmp.tau, phase)
+        new_time_steps = int(new_tau / dmp.sample_rate)
+        phase = DMP.create_phase_vector(ALPHA_X, new_tau, SAMPLE_RATE, new_time_steps)
+        new_movement_path = dmp.produce_movement(dmp.smooth_samples[0], dmp.smooth_samples[-1], new_tau, phase)
         movement_paths.append(new_movement_path)
         NEW_TIME_STEPS = len(new_movement_path)
 
     print("Connecting to Reachy..")
-    reachy: ReachySDK = ReachySDK(host="localhost")
     recorded_joints = [
         reachy.joints.l_shoulder_pitch,
         reachy.joints.l_shoulder_roll,

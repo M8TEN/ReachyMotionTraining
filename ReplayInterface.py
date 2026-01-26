@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from DMP import DMP, joint_names
 from ReplayFromDMP import play_movement
+from reachy_sdk import ReachySDK
 
 loaded_sample = np.array([])
 loaded_file_path: str = ""
@@ -36,7 +37,7 @@ def test(path: str):
     start_button.configure(state="enabled")
     loaded_file_path = path
 
-
+reachy: ReachySDK = ReachySDK(host="127.0.0.1")
 
 root = Tk()
 root.title("Reachy Motion Replay")
@@ -65,7 +66,7 @@ for f in os.listdir("Motions"):
 
 text.pack()
 
-start_button = ttk.Button(mainframe, text="Replay Motion", command=lambda: play_movement(loaded_file_path, slider.get()))
+start_button = ttk.Button(mainframe, text="Replay Motion", command=lambda: play_movement(reachy, loaded_file_path, slider.get()))
 start_button.grid(row=1, column=1)
 start_button.configure(state="disabled")
 
