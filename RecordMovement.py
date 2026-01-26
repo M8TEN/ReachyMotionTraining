@@ -6,6 +6,11 @@ import os
 import asyncio
 from DMP import DMP, ALPHA_X, ALPHA_Z, joint_names
 
+RECORDING_START: int = 1
+RECORDING_END: int = 2
+NO_REQUEST: int = 3
+ALLOW_REQUESTS: int = 4
+
 class MotionRecorder():
     def __init__(self, sample_rate: float = 1/60.0, robot_ip: str = "localhost") -> None:
         self.sample_rate: float = sample_rate
@@ -44,37 +49,45 @@ class MotionRecorder():
 
     def find_higest_num(self, dir: str) -> int:
         highest_num: int = 0
-        all_file_names: list = [f for f in os.listdir(dir) if os.path.isfile(f)]
+        all_file_names: list = [f for f in os.listdir(dir) if os.path.isfile(dir+"/"+f)]
         for file_name in all_file_names:
             dot_idx: int = file_name.rfind(".")-1
             if (dot_idx == -1): dot_idx = len(file_name)-1
             num_str: str = ""
-            while (file_name[dot_idx] >= 0 and file_name[dot_idx].isdigit()):
+            while (dot_idx >= 0 and file_name[dot_idx].isdigit()):
                 num_str = file_name[dot_idx] + num_str
                 dot_idx -= 1
             highest_num = max(highest_num, int(num_str))
         
         return highest_num
 
-    async def start_recording(self, start_event: asyncio.Event, halt_event: asyncio.Event) -> None:
+    async def start_recording(self, writer: asyncio.StreamWriter, start_event: asyncio.Event, halt_event: asyncio.Event) -> None:
         while not halt_event.is_set():
             await start_event.wait()
+            start_event.clear()
             print("Starting recording")
             self.samples.clear()
+            writer.write(bytes([RECORDING_START, NO_REQUEST]))
+            await writer.drain()
             self.start_time = time.time()
             self.recording = True
     
-    async def stop_recording(self, stop_event: asyncio.Event, halt_event: asyncio.Event) -> None:
+    async def stop_recording(self, writer: asyncio.StreamWriter, stop_event: asyncio.Event, halt_event: asyncio.Event) -> None:
         while not halt_event.is_set():
             await stop_event.wait()
+            stop_event.clear()
             self.recording = False
             recording_time: float = time.time() - self.start_time
             print(f"Recorded for {recording_time} seconds")
+            writer.write(bytes([RECORDING_END, NO_REQUEST]))
+            await writer.drain()
             if len(self.samples) > 0:
                 self.samples = np.array(self.samples)
                 dmps = self.calculate_dmps()
                 print("Saving recording..")
                 self.save_recording(dmps)
+            writer.write(bytes([ALLOW_REQUESTS]))
+            await writer.drain()
     
     def calculate_dmps(self) -> list:
         dmps: list = []
@@ -91,12 +104,12 @@ class MotionRecorder():
 
         return dmps
 
-    def save_recording(self, dmps: list, dir: str = "Movements") -> None:
+    def save_recording(self, dmps: list, dir: str = "Motions") -> None:
         if len(dmps) == 0: return
         if not os.path.exists(dir):
             os.mkdir(dir)
         movement_num: int = self.find_higest_num(dir)+1
-        new_file_path: str = f"{dir}/Movement{movement_num}.pkl"
+        new_file_path: str = f"{dir}/Motion{movement_num}.pkl"
         with open(new_file_path, "wb") as file:
             pickle.dump(np.array(dmps), file)
         print(f"Saved recording to '{new_file_path}'")

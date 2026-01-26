@@ -5,6 +5,11 @@ from RecordMovement import MotionRecorder
 PORT: int = 50056
 SAMPLE_RATE: float = 1/100.0
 
+RECORDING_START: int = 1
+RECORDING_END: int = 2
+NO_REQUEST: int = 3
+ALLOW_REQUESTS: int = 4
+
 client_reader = None
 client_writer = None
 connection_event = asyncio.Event()
@@ -54,11 +59,9 @@ async def wait_on_command(reader: asyncio.StreamReader, start_event: asyncio.Eve
         print(f"Command: {command}")
         if not start_event.is_set() and command_type == 1:
             start_event.set()
-            start_event.clear()
         elif command_type == 0:
             stop_event.set()
-            stop_event.clear()
-        elif command_type == 2:
+        elif command_type == 5:
             print("Connection closed by Client")
             halt_event.set()
             start_event.set()
@@ -69,11 +72,13 @@ async def main():
     stop_event = asyncio.Event()
     halt_event = asyncio.Event()
     recorder = MotionRecorder(sample_rate=SAMPLE_RATE)
-    update_task = asyncio.create_task(recorder.update(halt_event))
-    start_task = asyncio.create_task(recorder.start_recording(start_event, halt_event))
-    stop_task = asyncio.create_task(recorder.stop_recording(stop_event, halt_event))
     await establish_connection()
     await connection_event.wait()
+    client_writer.write(bytes([ALLOW_REQUESTS]))
+    await client_writer.drain()
+    update_task = asyncio.create_task(recorder.update(halt_event))
+    start_task = asyncio.create_task(recorder.start_recording(client_writer, start_event, halt_event))
+    stop_task = asyncio.create_task(recorder.stop_recording(client_writer, stop_event, halt_event))
     command_task = asyncio.create_task(wait_on_command(client_reader, start_event, stop_event, halt_event))
     await start_task
     await stop_task
