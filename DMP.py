@@ -2,6 +2,12 @@ import numpy as np
 from scipy.signal import savgol_filter
 from math import exp as mexp
 
+NUMBER_OF_JOINTS: int = 19
+SAMPLE_RATE: float = 1/60.0
+ALPHA_X: float = 25
+ALPHA_Z: float = 50
+BETA_Z: float = ALPHA_Z/4.0
+
 joint_names = [
     "l_shoulder_pitch",
     "l_shoulder_roll",
@@ -124,11 +130,6 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import sys
     from math import sqrt, ceil
-    NUMBER_OF_JOINTS: int = 19
-    SAMPLE_RATE: float = 1/60.0
-    ALPHA_X: float = 25
-    ALPHA_Z: float = 50
-    BETA_Z: float = ALPHA_Z/4.0
 
     joints_to_display: list = []
     sample_to_load: int = 1

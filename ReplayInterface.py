@@ -4,11 +4,13 @@ import os
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-from DMP import joint_names
+from DMP import DMP, joint_names
+from ReplayFromDMP import play_movement
 
 loaded_sample = np.array([])
+loaded_file_path: str = ""
 
-def play_selected_sample():
+def show_selected_sample():
     global loaded_sample
     print(loaded_sample)
     ROWS = COLUMNS = 5
@@ -23,14 +25,16 @@ def play_selected_sample():
     plt.show()
 
 def test(path: str):
-    global loaded_sample
+    global loaded_sample, loaded_file_path
     with open(path, "rb") as file:
         loaded_sample = pickle.load(file)
     
-    time = (len(loaded_sample) / 19) * (1/60.0)
+    first_dmp: DMP = loaded_sample[0]
+    time = first_dmp.tau
     slider.configure(from_=time/2.0, to=time*2.0)
     slider.set(time)
     start_button.configure(state="enabled")
+    loaded_file_path = path
 
 
 
@@ -53,15 +57,15 @@ sb.pack(side="right", fill="y")
 
 text.configure(yscrollcommand=sb.set)
 
-for f in os.listdir("Recordings"):
-    full_path: str = "Recordings/" + f
+for f in os.listdir("Motions"):
+    full_path: str = "Motions/" + f
     btn = ttk.Button(text, text=f, command=lambda msg=full_path: test(msg))
     text.window_create("end", window=btn)
     text.insert("end", "\n")
 
 text.pack()
 
-start_button = ttk.Button(mainframe, text="Replay Motion", command=play_selected_sample)
+start_button = ttk.Button(mainframe, text="Replay Motion", command=lambda: play_movement(loaded_file_path, slider.get()))
 start_button.grid(row=1, column=1)
 start_button.configure(state="disabled")
 
