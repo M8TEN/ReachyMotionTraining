@@ -10,6 +10,8 @@ RECORDING_START: int = 1
 RECORDING_END: int = 2
 NO_REQUEST: int = 3
 ALLOW_REQUESTS: int = 4
+NEEDED_LENGTH: int = 2
+DUMMY: int = 0xFF
 
 class MotionRecorder():
     def __init__(self, sample_rate: float = 1/60.0, robot_ip: str = "localhost") -> None:
@@ -67,8 +69,7 @@ class MotionRecorder():
             start_event.clear()
             print("Starting recording")
             self.samples.clear()
-            writer.write(bytes([RECORDING_START, NO_REQUEST]))
-            await writer.drain()
+            await self.send_client_command(writer, bytes([RECORDING_START, NO_REQUEST]))
             self.start_time = time.time()
             self.recording = True
     
@@ -79,15 +80,13 @@ class MotionRecorder():
             self.recording = False
             recording_time: float = time.time() - self.start_time
             print(f"Recorded for {recording_time} seconds")
-            writer.write(bytes([RECORDING_END, NO_REQUEST]))
-            await writer.drain()
+            await self.send_client_command(writer, bytes([RECORDING_END, NO_REQUEST]))
             if len(self.samples) > 0:
                 self.samples = np.array(self.samples)
                 dmps = self.calculate_dmps()
                 print("Saving recording..")
                 self.save_recording(dmps)
-            writer.write(bytes([ALLOW_REQUESTS]))
-            await writer.drain()
+            await self.send_client_command(writer, bytes([ALLOW_REQUESTS]))
     
     def calculate_dmps(self) -> list:
         dmps: list = []
@@ -113,6 +112,12 @@ class MotionRecorder():
         with open(new_file_path, "wb") as file:
             pickle.dump(np.array(dmps), file)
         print(f"Saved recording to '{new_file_path}'")
+    
+    async def send_client_command(writer: asyncio.StreamWriter, command: bytes):
+        if len(command) < NEEDED_LENGTH:
+            command += bytes([DUMMY]*(NEEDED_LENGTH - len(command)))
+        writer.write(command)
+        await writer.drain()
 
 if __name__ == "__main__":
     try:
