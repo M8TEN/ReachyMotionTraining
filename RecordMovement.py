@@ -82,7 +82,6 @@ class MotionRecorder():
             print(f"Recorded for {recording_time} seconds")
             await self.send_client_command(writer, bytes([RECORDING_END, NO_REQUEST]))
             if len(self.samples) > 0:
-                self.samples = np.array(self.samples)
                 dmps = self.calculate_dmps()
                 print("Saving recording..")
                 self.save_recording(dmps)
@@ -90,12 +89,13 @@ class MotionRecorder():
     
     def calculate_dmps(self) -> list:
         dmps: list = []
-        number_of_samples: int = len(self.samples)
+        np_samples: np.ndarray = np.array(self.samples)
+        number_of_samples: int = len(np_samples)
         number_of_joints: int = len(self.recorded_joints)
         tau: float = (number_of_samples / number_of_joints) * self.sample_rate
         for i in range(number_of_joints):
             print(f"Calculating DMP for {joint_names[i]}")
-            current_samples = self.samples[i::number_of_joints]
+            current_samples = np_samples[i::number_of_joints]
             phase = DMP.create_phase_vector(ALPHA_X, tau, self.sample_rate, len(current_samples))
             dmp = DMP(self.sample_rate, tau, ALPHA_Z, ALPHA_X, current_samples, phase)
             dmp.learn_weights()
@@ -113,7 +113,7 @@ class MotionRecorder():
             pickle.dump(np.array(dmps), file)
         print(f"Saved recording to '{new_file_path}'")
     
-    async def send_client_command(writer: asyncio.StreamWriter, command: bytes):
+    async def send_client_command(self, writer: asyncio.StreamWriter, command: bytes):
         if len(command) < NEEDED_LENGTH:
             command += bytes([DUMMY]*(NEEDED_LENGTH - len(command)))
         writer.write(command)

@@ -73,7 +73,7 @@ class DMP():
         f_target = self.calculate_f_target(self.smooth_samples, self.velocity, self.acceleration, goal)
 
         # Learn weights
-        N: int = 200 #Number of Basis functions
+        N: int = int(20*self.tau) #Number of Basis functions
         time_distribution = np.linspace(0, self.tau, N)
         self.kernel_centers = np.exp(-self.alpha_x/self.tau*time_distribution)
         self.kernel_widths = np.zeros(N)
@@ -91,7 +91,10 @@ class DMP():
             s_trans = s.transpose()
             T_i = np.diag(np.array([self.basis_function(self.kernel_centers[i], self.kernel_widths[i], x) for x in self.phase]))
             w_i = (s_trans @ T_i @ f_target) / (s_trans @ T_i @ s)
-            weights.append(w_i)
+            if np.isnan(w_i):
+                weights.append(0)
+            else:
+                weights.append(w_i)
         
         self.weights = np.array(weights)
 

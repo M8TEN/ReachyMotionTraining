@@ -11,6 +11,16 @@ from reachy_sdk import ReachySDK
 loaded_sample = np.array([])
 loaded_file_path: str = ""
 
+def find_num(file_name: str) -> int:
+    dot_idx: int = file_name.rfind(".")
+    num: str = ""
+    idx: int = dot_idx-1
+    while (idx >= 0 and file_name[idx].isdigit()):
+        num = file_name[idx] + num
+        idx -= 1
+    
+    return int(num)
+
 def show_selected_sample():
     global loaded_sample
     print(loaded_sample)
@@ -58,9 +68,12 @@ sb.pack(side="right", fill="y")
 
 text.configure(yscrollcommand=sb.set)
 
-for f in os.listdir("Motions"):
+file_names: list = os.listdir("Motions")
+file_names.sort(key=find_num)
+
+for f in file_names:
     full_path: str = "Motions/" + f
-    btn = ttk.Button(text, text=f, command=lambda msg=full_path: test(msg))
+    btn = ttk.Button(text, text=f.removesuffix(".pkl"), command=lambda msg=full_path: test(msg))
     text.window_create("end", window=btn)
     text.insert("end", "\n")
 
