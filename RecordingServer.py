@@ -5,10 +5,12 @@ from RecordMovement import MotionRecorder
 PORT: int = 50056
 SAMPLE_RATE: float = 1/100.0
 
+RECORDING_STOP: int = 0
 RECORDING_START: int = 1
 RECORDING_END: int = 2
 NO_REQUEST: int = 3
 ALLOW_REQUESTS: int = 4
+CLOSE_CONNECTION: int = 5
 
 client_reader = None
 client_writer = None
@@ -57,11 +59,11 @@ async def wait_on_command(reader: asyncio.StreamReader, start_event: asyncio.Eve
         command = await reader.read(1)
         command_type = command[0]
         print(f"Command: {command}")
-        if not start_event.is_set() and command_type == 1:
+        if not start_event.is_set() and command_type == RECORDING_START:
             start_event.set()
-        elif command_type == 0:
+        elif command_type == RECORDING_STOP:
             stop_event.set()
-        elif command_type == 5:
+        elif command_type == CLOSE_CONNECTION:
             print("Connection closed by Client")
             halt_event.set()
             start_event.set()

@@ -89,7 +89,7 @@ class MotionRecorder():
             print(f"Recorded for {recording_time} seconds")
             await self.send_client_command(writer, bytes([RECORDING_END, NO_REQUEST]))
             if len(self.samples) > 0:
-                dmps = await self.calculate_dmps()
+                dmps = self.calculate_dmps()
                 print("Saving recording..")
                 self.save_recording(dmps)
             await self.send_client_command(writer, bytes([ALLOW_REQUESTS]))
@@ -104,14 +104,14 @@ class MotionRecorder():
     def run_starmap(self, grouped_samples):
         return self.pool.starmap(MotionRecorder.dmp_helper, grouped_samples)
 
-    async def calculate_dmps(self) -> list:
+    def calculate_dmps(self) -> list:
         np_samples: np.ndarray = np.array(self.samples)
         number_of_samples: int = len(np_samples)
         number_of_joints: int = len(self.recorded_joints)
         tau: float = (number_of_samples / number_of_joints) * self.sample_rate
         grouped_samples = [(tau, self.sample_rate, np_samples[i::number_of_joints]) for i in range(number_of_joints)]
         
-        dmps = await asyncio.get_running_loop().run_in_executor(None, self.run_starmap, grouped_samples)
+        dmps = self.run_starmap(grouped_samples)
 
         return dmps
 
