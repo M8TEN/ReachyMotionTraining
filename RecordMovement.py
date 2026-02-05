@@ -21,6 +21,7 @@ class MotionRecorder():
         self.samples: list = []
         self.recording: bool = False
         self.start_time: float = time.time()
+        self.pool = Pool()
         self.reachy: ReachySDK = ReachySDK(host=robot_ip)
         self.recorded_joints: list = [
             self.reachy.joints.l_shoulder_pitch,
@@ -43,7 +44,6 @@ class MotionRecorder():
             self.reachy.joints.neck_roll,
             self.reachy.joints.neck_yaw
         ]
-        self.pool = Pool()
     
     def __del__(self):
         self.pool.close()
