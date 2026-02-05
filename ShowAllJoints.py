@@ -44,6 +44,7 @@ for i in range(len(all_dmps)):
     plt.ylabel("Joint Angle (deg)")
     plt.title(joint_names[i])
 
+print(f"Highest deviation: {max(errors)}°")
 plt.subplot(ROWS, COLUMNS, len(all_dmps)+1)
 plt.bar([str(i) for i in range(len(all_dmps))], errors)
 plt.show()

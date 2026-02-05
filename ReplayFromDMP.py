@@ -4,6 +4,28 @@ from DMP import DMP, ALPHA_X, SAMPLE_RATE, NUMBER_OF_JOINTS
 import pickle
 from time import sleep
 
+joint_limits: dict = {
+    "r_shoulder_pitch": (-150, 90),
+    "r_shoulder_roll": (-180, 10),
+    "r_arm_yaw": (-90, 90),
+    "r_elbow_pitch": (-125, 0),
+    "r_forearm_yaw": (-100, 100),
+    "r_wrist_pitch": (-45, 45),
+    "r_wrist_roll": (-55, 35),
+    "r_gripper": (-50, 25),
+    "l_shoulder_pitch": (-150, 90),
+    "l_shoulder_roll": (-10, 180),
+    "l_arm_yaw": (-90, 90),
+    "l_elbow_pitch": (-125, 0),
+    "l_forearm_yaw": (-100, 100),
+    "l_wrist_pitch": (-45, 45),
+    "wrist_roll": (-35, 55),
+    "l_gripper": (-25, 50),
+    "neck_roll": (-46, 46),
+    "neck_pitch": (-46, 46),
+    "neck_yaw": (0, 360)
+}
+
 def play_movement(reachy: ReachySDK, file_path: str, new_tau: float):
 
     with open(file_path, "rb") as file:
@@ -47,7 +69,7 @@ def play_movement(reachy: ReachySDK, file_path: str, new_tau: float):
     reachy.turn_on("reachy")
 
     try:
-        first_position = dict(zip(recorded_joints, [p[0] for p in movement_paths]))
+        first_position = dict(zip(recorded_joints, (p[0] for p in movement_paths)))
         goto(first_position, 3.0)
         print(reachy.r_arm.forward_kinematics())
         for i in range(NEW_TIME_STEPS):

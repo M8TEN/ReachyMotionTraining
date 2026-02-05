@@ -84,5 +84,5 @@ async def main():
     await update_task
     await command_task
 
-
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

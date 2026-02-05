@@ -39,7 +39,7 @@ class DMP():
         self.alpha_x = alpha_x
         self.tau = tau
         self.phase = phase
-        window_size = 21
+        window_size = 11
         self.smooth_samples = savgol_filter(joint_path, window_size, 3)
         self.velocity = savgol_filter(joint_path, window_size, 3, 1, self.sample_rate)
         self.acceleration = savgol_filter(joint_path, window_size, 3, 2, self.sample_rate)
@@ -101,10 +101,9 @@ class DMP():
     def produce_movement(self, start: float, goal: float, new_tau: float, time_vector: np.ndarray) -> np.ndarray:
         # Reproduce the movement using learned weights
         new_x = 1
-        position = start #self.smooth_samples[0]
-        vel = self.velocity[0]
+        position = start
+        vel = self.velocity[0] * self.tau
         reproduced_movement = []
-        new_correction = goal-start
 
         for t in time_vector:
             f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, self.correction_term)
@@ -174,6 +173,8 @@ if __name__ == "__main__":
     COLUMNS = ceil(sqrt(len(joints_to_display)))
     ROWS = ceil(len(joints_to_display)/COLUMNS)
 
+    plt.figure(figsize=(15,20))
+
     for i in range(len(joints_to_display)):
         joint_idx: int = joints_to_display[i]
         print(f"Calculating DMP for joint '{joint_names[joint_idx]}'")
@@ -188,5 +189,6 @@ if __name__ == "__main__":
         plt.plot(time_space, joint_samples, label="Original Movement")
         plt.plot(time_space, reproduced_movement, label="Reproduced Movement")
 
+    plt.tight_layout()
     plt.legend()
     plt.show()
