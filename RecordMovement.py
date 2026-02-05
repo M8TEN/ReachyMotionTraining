@@ -4,7 +4,9 @@ import time
 import numpy as np
 import os
 import asyncio
-from DMP import DMP, ALPHA_X, ALPHA_Z, joint_names
+from DMP import DMP, ALPHA_X, ALPHA_Z
+from multiprocessing import Pool
+import asyncio
 
 RECORDING_START: int = 1
 RECORDING_END: int = 2
@@ -41,6 +43,11 @@ class MotionRecorder():
             self.reachy.joints.neck_roll,
             self.reachy.joints.neck_yaw
         ]
+        self.pool = Pool()
+    
+    def __del__(self):
+        self.pool.close()
+        self.pool.join()
     
     async def update(self, halt_event: asyncio.Event):
         while not halt_event.is_set():
@@ -82,24 +89,29 @@ class MotionRecorder():
             print(f"Recorded for {recording_time} seconds")
             await self.send_client_command(writer, bytes([RECORDING_END, NO_REQUEST]))
             if len(self.samples) > 0:
-                dmps = self.calculate_dmps()
+                dmps = await self.calculate_dmps()
                 print("Saving recording..")
                 self.save_recording(dmps)
             await self.send_client_command(writer, bytes([ALLOW_REQUESTS]))
     
-    def calculate_dmps(self) -> list:
-        dmps: list = []
+    @staticmethod
+    def dmp_helper(tau: float, sample_rate: float, samples) -> DMP:
+        phase = DMP.create_phase_vector(ALPHA_X, tau, sample_rate, len(samples))
+        dmp = DMP(sample_rate, tau, ALPHA_Z, ALPHA_X, samples, phase)
+        dmp.learn_weights()
+        return dmp
+
+    def run_starmap(self, grouped_samples):
+        return self.pool.starmap(MotionRecorder.dmp_helper, grouped_samples)
+
+    async def calculate_dmps(self) -> list:
         np_samples: np.ndarray = np.array(self.samples)
         number_of_samples: int = len(np_samples)
         number_of_joints: int = len(self.recorded_joints)
         tau: float = (number_of_samples / number_of_joints) * self.sample_rate
-        for i in range(number_of_joints):
-            print(f"Calculating DMP for {joint_names[i]}")
-            current_samples = np_samples[i::number_of_joints]
-            phase = DMP.create_phase_vector(ALPHA_X, tau, self.sample_rate, len(current_samples))
-            dmp = DMP(self.sample_rate, tau, ALPHA_Z, ALPHA_X, current_samples, phase)
-            dmp.learn_weights()
-            dmps.append(dmp)
+        grouped_samples = [(tau, self.sample_rate, np_samples[i::number_of_joints]) for i in range(number_of_joints)]
+        
+        dmps = await asyncio.get_running_loop().run_in_executor(None, self.run_starmap, grouped_samples)
 
         return dmps
 
@@ -118,26 +130,3 @@ class MotionRecorder():
             command += bytes([DUMMY]*(NEEDED_LENGTH - len(command)))
         writer.write(command)
         await writer.drain()
-
-if __name__ == "__main__":
-    try:
-        time_to_record = float(input("How long should the recording be? "))
-    except TypeError:
-        print("Input must be int or float")
-        exit(1)
-    
-    recorder = MotionRecorder(1/100.0)
-    WAIT_DELAY: float = 15.0
-    time.sleep(WAIT_DELAY)
-    recorded_time: float = 0.0
-    print("\a")
-    recorder.start_recording()
-    while recorded_time < time_to_record:
-        recorder.update()
-        time.sleep(recorder.sample_rate)
-        recorded_time += recorder.sample_rate
-    
-    recorder.stop_recording()
-    print("\a")
-    print("\a")
-    print("Recording finished")
