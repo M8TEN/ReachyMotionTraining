@@ -5,8 +5,6 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from DMP import DMP, joint_names
-from ReplayFromDMP import play_movement
-from reachy_sdk import ReachySDK
 
 loaded_sample = np.array([])
 loaded_file_path: str = ""
@@ -51,59 +49,22 @@ def select_sample(path: str) -> None:
     play_button.configure(state="enabled")
     loaded_file_path = path
     reset_motion()
-    selection_label.configure(text="Selected Motion " + str(find_num(path)))
+    selection_label.config(text="Selected Motion " + str(find_num(path)))
 
 def set_left_start() -> None:
-    global reachy, l_motion_start
-    l_motion_start: list = [
-        reachy.joints.l_shoulder_pitch.present_position,
-        reachy.joints.l_shoulder_roll.present_position,
-        reachy.joints.l_arm_yaw.present_position,
-        reachy.joints.l_elbow_pitch.present_position,
-        reachy.joints.l_forearm_yaw.present_position,
-        reachy.joints.l_wrist_pitch.present_position,
-        reachy.joints.l_wrist_roll.present_position
-    ]
+    print("Set left start")
 
 def set_right_start() -> None:
-    global reachy, r_motion_start
-    r_motion_start: list = [
-        reachy.joints.r_shoulder_pitch.present_position,
-        reachy.joints.r_shoulder_roll.present_position,
-        reachy.joints.r_arm_yaw.present_position,
-        reachy.joints.r_elbow_pitch.present_position,
-        reachy.joints.r_forearm_yaw.present_position,
-        reachy.joints.r_wrist_pitch.present_position,
-        reachy.joints.r_wrist_roll.present_position
-    ]
+    print("Set right start")
 
 def set_left_end() -> None:
-    global reachy, l_motion_end
-    l_motion_end: list = [
-        reachy.joints.l_shoulder_pitch.present_position,
-        reachy.joints.l_shoulder_roll.present_position,
-        reachy.joints.l_arm_yaw.present_position,
-        reachy.joints.l_elbow_pitch.present_position,
-        reachy.joints.l_forearm_yaw.present_position,
-        reachy.joints.l_wrist_pitch.present_position,
-        reachy.joints.l_wrist_roll.present_position
-    ]
+    print("Set left end")
 
 def set_right_end() -> None:
-    global reachy, r_motion_end
-    r_motion_end: list = [
-        reachy.joints.r_shoulder_pitch.present_position,
-        reachy.joints.r_shoulder_roll.present_position,
-        reachy.joints.r_arm_yaw.present_position,
-        reachy.joints.r_elbow_pitch.present_position,
-        reachy.joints.r_forearm_yaw.present_position,
-        reachy.joints.r_wrist_pitch.present_position,
-        reachy.joints.r_wrist_roll.present_position
-    ]
+    print("Set right end")
 
 def replay_on_robot() -> None:
-    global reachy, loaded_file_path, slider, l_motion_start, l_motion_end, r_motion_start, r_motion_end
-    play_movement(reachy, loaded_file_path, slider.get(), (l_motion_start, l_motion_end), (r_motion_start, r_motion_end))
+    return
 
 def reset_motion() -> None:
     global loaded_sample, slider, l_motion_start, l_motion_end, r_motion_start, r_motion_end
@@ -111,16 +72,17 @@ def reset_motion() -> None:
     if len(loaded_sample) > 0:
         slider.set(loaded_sample[0].tau)
 
-reachy: ReachySDK = ReachySDK(host="127.0.0.1")
+reachy = None
 
 root = Tk()
 root.title("Reachy Motion Replay")
+root.columnconfigure(0, weight=1)
+root.rowconfigure(0, weight=1)
 
 mainframe: Frame = Frame(root, width=500, height=500)
 mainframe.grid(column=0, row=0, sticky=(N, E, S, W))
-
-selection_label: ttk.Label = ttk.Label(mainframe, text="No Motion selected")
-selection_label.grid(row=0, column=1, sticky=(E,W))
+mainframe.columnconfigure(1, weight=1)
+mainframe.rowconfigure(1, weight=1)
 
 slider: Scale = Scale(mainframe, orient="horizontal", resolution=0.1, label="Execution time (s)")
 slider.grid(column=1, row=1, sticky=(E,W))
@@ -128,12 +90,12 @@ slider.grid(column=1, row=1, sticky=(E,W))
 button_frame: Frame = Frame(mainframe)
 button_frame.grid(column=0, row=0, rowspan=3, sticky=(N, S))
 
-text: Text = Text(button_frame, width=15, height=20)
+text: Text = Text(button_frame, width=15, height=25)
 
 sb: ttk.Scrollbar = ttk.Scrollbar(button_frame, orient="vertical", command=text.yview)
 sb.pack(side="right", fill="y")
 
-text.configure(yscrollcommand=sb.set, state="disabled")
+text.configure(yscrollcommand=sb.set)
 
 file_names: list = os.listdir("Motions")
 file_names.sort(key=find_num)
@@ -141,11 +103,14 @@ file_names.sort(key=find_num)
 for f in file_names:
     full_path: str = "Motions/" + f
     btn = ttk.Button(text, text=f.removesuffix(".pkl"), command=lambda msg=full_path: select_sample(msg))
-    text.window_create("end", window=btn)
+    text.window_create("end", window=btn, pady=2)
     text.insert("end", "\n")
 
 text.pack()
+text.configure(state="disabled")
 
+selection_label = ttk.Label(mainframe, text="Selected Motion: None")
+selection_label.grid(column=1, row=0)
 command_button_frame: ttk.Frame = ttk.Frame(mainframe)
 left_start_button: ttk.Button = ttk.Button(command_button_frame, text="Set Left Start", command=set_left_start)
 left_end_button: ttk.Button = ttk.Button(command_button_frame, text="Set Left End", command=set_left_end)

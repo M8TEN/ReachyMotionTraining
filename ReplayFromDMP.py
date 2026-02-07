@@ -4,29 +4,36 @@ from DMP import DMP, ALPHA_X, SAMPLE_RATE, NUMBER_OF_JOINTS
 import pickle
 from time import sleep
 
-joint_limits: dict = {
-    "r_shoulder_pitch": (-150, 90),
-    "r_shoulder_roll": (-180, 10),
-    "r_arm_yaw": (-90, 90),
-    "r_elbow_pitch": (-125, 0),
-    "r_forearm_yaw": (-100, 100),
-    "r_wrist_pitch": (-45, 45),
-    "r_wrist_roll": (-55, 35),
-    "r_gripper": (-50, 25),
-    "l_shoulder_pitch": (-150, 90),
-    "l_shoulder_roll": (-10, 180),
-    "l_arm_yaw": (-90, 90),
-    "l_elbow_pitch": (-125, 0),
-    "l_forearm_yaw": (-100, 100),
-    "l_wrist_pitch": (-45, 45),
-    "wrist_roll": (-35, 55),
-    "l_gripper": (-25, 50),
-    "neck_roll": (-46, 46),
-    "neck_pitch": (-46, 46),
-    "neck_yaw": (0, 360)
-}
+LEFT_ARM_INDICIES = (0, 6)
+RIGHT_ARM_INDICIES = (8, 14)
 
-def play_movement(reachy: ReachySDK, file_path: str, new_tau: float):
+# Limits as per Reachy 2023 Documentation
+joint_limits: list = [
+    (-150, 90), # l_shoulder_pitch
+    (-10, 180), # l_shoulder_roll
+    (-90, 90), # l_arm_yaw
+    (-125, 0), # l_elbow_pitch
+    (-100, 100), # l_forearm_yaw
+    (-45, 45), # l_wrist_pitch
+    (-35, 55), # l_wrist_roll
+    (-25, 50), # l_gripper
+    (-150, 90), # r_shoulder_pitch
+    (-180, 10), # r_shoulder_roll
+    (-90, 90), # r_arm_yaw
+    (-125, 0), # r_elbow_pitch
+    (-100, 100), # r_forearm_yaw
+    (-45, 45), # r_wrist_pitch
+    (-55, 35), # r_wrist_roll
+    (-50, 25), # r_gripper
+    (-46, 46), # neck_roll
+    (-46, 46), # neck_pitch
+    (0, 360) # neck_yaw
+]
+
+def clamp(min_val: float, max_val: float, to_clamp: float) -> float:
+    return min(max_val, max(min_val, to_clamp))
+
+def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points: tuple, right_points: tuple):
 
     with open(file_path, "rb") as file:
         all_dmps = pickle.load(file)
@@ -38,12 +45,23 @@ def play_movement(reachy: ReachySDK, file_path: str, new_tau: float):
     for i in range(len(all_dmps)):
         dmp: DMP = all_dmps[i]
         new_time_steps = int(new_tau / dmp.sample_rate)
-        phase = DMP.create_phase_vector(ALPHA_X, new_tau, SAMPLE_RATE, new_time_steps)
-        new_movement_path = dmp.produce_movement(dmp.smooth_samples[0], dmp.smooth_samples[-1], new_tau, phase)
+        phase = DMP.create_phase_vector(ALPHA_X, new_tau, dmp.sample_rate, new_time_steps)
+
+        if (i >= LEFT_ARM_INDICIES[0] and i <= LEFT_ARM_INDICIES[1]):
+            motion_start = left_points[0][i] if (left_points[0]) else dmp.smooth_samples[0]
+            motion_end = left_points[1][i] if (left_points[1]) else dmp.smooth_samples[-1]
+        elif (i >= RIGHT_ARM_INDICIES[0] and i <= RIGHT_ARM_INDICIES[1]):
+            motion_start = right_points[0][i-RIGHT_ARM_INDICIES[0]] if (right_points[0]) else dmp.smooth_samples[0]
+            motion_end = right_points[1][i-RIGHT_ARM_INDICIES[0]] if (right_points[1]) else dmp.smooth_samples[-1]
+        else:
+            motion_start = dmp.smooth_samples[0]
+            motion_end = dmp.smooth_samples[-1]
+
+        new_movement_path = dmp.produce_movement(motion_start, motion_end, new_tau, phase)
         movement_paths.append(new_movement_path)
         NEW_TIME_STEPS = len(new_movement_path)
 
-    print("Connecting to Reachy..")
+    print("Turning on Reachy..")
     recorded_joints = [
         reachy.joints.l_shoulder_pitch,
         reachy.joints.l_shoulder_roll,
@@ -71,10 +89,9 @@ def play_movement(reachy: ReachySDK, file_path: str, new_tau: float):
     try:
         first_position = dict(zip(recorded_joints, (p[0] for p in movement_paths)))
         goto(first_position, 3.0)
-        print(reachy.r_arm.forward_kinematics())
         for i in range(NEW_TIME_STEPS):
             for j in range(NUMBER_OF_JOINTS):
-                recorded_joints[j].goal_position = movement_paths[j][i]
+                recorded_joints[j].goal_position = clamp(joint_limits[j][0], joint_limits[j][1], movement_paths[j][i])
             sleep(SAMPLE_RATE)
     except KeyboardInterrupt:
         pass
