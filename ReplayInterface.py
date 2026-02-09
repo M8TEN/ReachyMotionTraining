@@ -8,13 +8,6 @@ from DMP import DMP, joint_names
 from ReplayFromDMP import play_movement
 from reachy_sdk import ReachySDK
 
-loaded_sample = np.array([])
-loaded_file_path: str = ""
-l_motion_start: tuple = None
-l_motion_end: tuple = None
-r_motion_start: tuple = None
-r_motion_end: tuple = None
-
 def find_num(file_name: str) -> int:
     dot_idx: int = file_name.rfind(".")
     num: str = ""
@@ -54,8 +47,8 @@ def select_sample(path: str) -> None:
     selection_label.configure(text="Selected Motion " + str(find_num(path)))
 
 def set_left_start() -> None:
-    global reachy, l_motion_start
-    l_motion_start: list = [
+    global l_motion_start
+    l_motion_start = [
         reachy.joints.l_shoulder_pitch.present_position,
         reachy.joints.l_shoulder_roll.present_position,
         reachy.joints.l_arm_yaw.present_position,
@@ -66,8 +59,8 @@ def set_left_start() -> None:
     ]
 
 def set_right_start() -> None:
-    global reachy, r_motion_start
-    r_motion_start: list = [
+    global r_motion_start
+    r_motion_start = [
         reachy.joints.r_shoulder_pitch.present_position,
         reachy.joints.r_shoulder_roll.present_position,
         reachy.joints.r_arm_yaw.present_position,
@@ -78,8 +71,8 @@ def set_right_start() -> None:
     ]
 
 def set_left_end() -> None:
-    global reachy, l_motion_end
-    l_motion_end: list = [
+    global l_motion_end
+    l_motion_end = [
         reachy.joints.l_shoulder_pitch.present_position,
         reachy.joints.l_shoulder_roll.present_position,
         reachy.joints.l_arm_yaw.present_position,
@@ -90,8 +83,8 @@ def set_left_end() -> None:
     ]
 
 def set_right_end() -> None:
-    global reachy, r_motion_end
-    r_motion_end: list = [
+    global r_motion_end
+    r_motion_end = [
         reachy.joints.r_shoulder_pitch.present_position,
         reachy.joints.r_shoulder_roll.present_position,
         reachy.joints.r_arm_yaw.present_position,
@@ -103,6 +96,7 @@ def set_right_end() -> None:
 
 def replay_on_robot() -> None:
     global reachy, loaded_file_path, slider, l_motion_start, l_motion_end, r_motion_start, r_motion_end
+    log_positions("DebugLog.txt")
     play_movement(reachy, loaded_file_path, slider.get(), (l_motion_start, l_motion_end), (r_motion_start, r_motion_end))
 
 def reset_motion() -> None:
@@ -111,7 +105,18 @@ def reset_motion() -> None:
     if len(loaded_sample) > 0:
         slider.set(loaded_sample[0].tau)
 
+def log_positions(file_path: str) -> None:
+    message: str = f"l_motion_start: {l_motion_start}\nl_motion_end: {l_motion_end}\nr_motion_start: {r_motion_start}\nr_motion_end{r_motion_end}"
+    with open(file_path, "w") as file:
+        file.write(message)
+
 reachy: ReachySDK = ReachySDK(host="127.0.0.1")
+loaded_sample = np.array([])
+loaded_file_path: str = ""
+l_motion_start: list = None
+l_motion_end: list = None
+r_motion_start: list = None
+r_motion_end: list = None
 
 root = Tk()
 root.title("Reachy Motion Replay")

@@ -39,6 +39,7 @@ class DMP():
         self.alpha_x = alpha_x
         self.tau = tau
         self.phase = phase
+        self.original_path = joint_path
         window_size = 11
         self.smooth_samples = savgol_filter(joint_path, window_size, 3)
         self.velocity = savgol_filter(joint_path, window_size, 3, 1, self.sample_rate)
@@ -54,7 +55,7 @@ class DMP():
     def basis_function(self, center, width, x):
         return mexp(-width * (x - center)**2)
 
-    def forcing_function(self, kernels, widths, weights, phase, A) -> float:
+    def forcing_function(self, kernels, widths, weights, phase, goal, start) -> float:
         numerator = 0
         denominator = 0
         for i in range(len(kernels)):
@@ -65,11 +66,11 @@ class DMP():
         if abs(denominator) < 1e-10:
             return 0
 
-        return numerator/denominator * phase * A
+        return numerator/denominator * phase * (goal - start)
 
     def learn_weights(self) -> None:
-        start = self.smooth_samples[0]
-        goal = self.smooth_samples[-1]
+        start = self.original_path[0]
+        goal = self.original_path[-1]
         f_target = self.calculate_f_target(self.smooth_samples, self.velocity, self.acceleration, goal)
 
         # Learn weights
@@ -84,11 +85,11 @@ class DMP():
 
         self.kernel_widths[-1] = self.kernel_widths[-2]
         weights = []
+        s: np.ndarray = self.phase * (goal - start) # Since Eta = x(t)(g-y_0)
+        s_trans: np.ndarray = s.transpose()
 
         # w[i] = (s.transposed * T[i] * f_target) / (s.transposed * T[i] * s)
         for i in range(N):
-            s: np.ndarray = self.phase * self.correction_term # Since Eta = x(t)(g-y_0)
-            s_trans = s.transpose()
             T_i = np.diag(np.array([self.basis_function(self.kernel_centers[i], self.kernel_widths[i], x) for x in self.phase]))
             w_i = (s_trans @ T_i @ f_target) / (s_trans @ T_i @ s)
             if np.isnan(w_i):
@@ -98,15 +99,21 @@ class DMP():
         
         self.weights = np.array(weights)
 
+    '''Reproduce the movement using learned weights'''
     def produce_movement(self, start: float, goal: float, new_tau: float, time_vector: np.ndarray) -> np.ndarray:
-        # Reproduce the movement using learned weights
         new_x = 1
         position = start
         vel = self.velocity[0] * self.tau
         reproduced_movement = []
+        # original_displacement: float = self.smooth_samples[-1] - self.smooth_samples[0]
+        # if abs(original_displacement) < 1e-6:
+        #     correction = self.correction_term
+        # else:
+        #     new_displacement: float = goal - start
+        #     correction: float = self.correction_term * (new_displacement / original_displacement)
 
         for t in time_vector:
-            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, self.correction_term)
+            f = self.forcing_function(self.kernel_centers, self.kernel_widths, self.weights, new_x, goal, start)
             dx = -self.alpha_x*new_x / new_tau
             new_x += dx * self.sample_rate
             dz = (self.alpha_z * (self.beta_z * (goal - position) - vel) + f) / new_tau

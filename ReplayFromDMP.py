@@ -48,14 +48,14 @@ def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points
         phase = DMP.create_phase_vector(ALPHA_X, new_tau, dmp.sample_rate, new_time_steps)
 
         if (i >= LEFT_ARM_INDICIES[0] and i <= LEFT_ARM_INDICIES[1]):
-            motion_start = left_points[0][i] if (left_points[0]) else dmp.smooth_samples[0]
-            motion_end = left_points[1][i] if (left_points[1]) else dmp.smooth_samples[-1]
+            motion_start = left_points[0][i] if (left_points[0]) else dmp.original_path[0]
+            motion_end = left_points[1][i] if (left_points[1]) else dmp.original_path[-1]
         elif (i >= RIGHT_ARM_INDICIES[0] and i <= RIGHT_ARM_INDICIES[1]):
-            motion_start = right_points[0][i-RIGHT_ARM_INDICIES[0]] if (right_points[0]) else dmp.smooth_samples[0]
-            motion_end = right_points[1][i-RIGHT_ARM_INDICIES[0]] if (right_points[1]) else dmp.smooth_samples[-1]
+            motion_start = right_points[0][i-RIGHT_ARM_INDICIES[0]] if (right_points[0]) else dmp.original_path[0]
+            motion_end = right_points[1][i-RIGHT_ARM_INDICIES[0]] if (right_points[1]) else dmp.original_path[-1]
         else:
-            motion_start = dmp.smooth_samples[0]
-            motion_end = dmp.smooth_samples[-1]
+            motion_start = dmp.original_path[0]
+            motion_end = dmp.original_path[-1]
 
         new_movement_path = dmp.produce_movement(motion_start, motion_end, new_tau, phase)
         movement_paths.append(new_movement_path)
