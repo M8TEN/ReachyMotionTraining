@@ -97,7 +97,9 @@ def set_right_end() -> None:
 def replay_on_robot() -> None:
     global reachy, loaded_file_path, slider, l_motion_start, l_motion_end, r_motion_start, r_motion_end
     log_positions("DebugLog.txt")
-    play_movement(reachy, loaded_file_path, slider.get(), (l_motion_start, l_motion_end), (r_motion_start, r_motion_end))
+    play_button.configure(state="disabled")
+    play_movement(reachy, loaded_file_path, slider.get(), (l_motion_start, l_motion_end), (r_motion_start, r_motion_end), root)
+    play_button.configure(state="enabled")
 
 def reset_motion() -> None:
     global loaded_sample, slider, l_motion_start, l_motion_end, r_motion_start, r_motion_end
@@ -109,6 +111,9 @@ def log_positions(file_path: str) -> None:
     message: str = f"l_motion_start: {l_motion_start}\nl_motion_end: {l_motion_end}\nr_motion_start: {r_motion_start}\nr_motion_end{r_motion_end}"
     with open(file_path, "w") as file:
         file.write(message)
+
+def abort() -> None:
+    exit(1)
 
 reachy: ReachySDK = ReachySDK(host="127.0.0.1")
 loaded_sample = np.array([])
@@ -125,7 +130,7 @@ mainframe: Frame = Frame(root, width=500, height=500)
 mainframe.grid(column=0, row=0, sticky=(N, E, S, W))
 
 selection_label: ttk.Label = ttk.Label(mainframe, text="No Motion selected")
-selection_label.grid(row=0, column=1, sticky=(E,W))
+selection_label.grid(row=0, column=1, sticky=(E,W), padx=10)
 
 slider: Scale = Scale(mainframe, orient="horizontal", resolution=0.1, label="Execution time (s)")
 slider.grid(column=1, row=1, sticky=(E,W))
@@ -140,6 +145,8 @@ sb.pack(side="right", fill="y")
 
 text.configure(yscrollcommand=sb.set, state="disabled")
 
+if not os.path.exists("Motions"):
+    os.mkdir("Motions")
 file_names: list = os.listdir("Motions")
 file_names.sort(key=find_num)
 

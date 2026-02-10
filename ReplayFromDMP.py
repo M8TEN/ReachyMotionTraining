@@ -2,7 +2,7 @@ from reachy_sdk import ReachySDK
 from reachy_sdk.trajectory import goto
 from DMP import DMP, ALPHA_X, SAMPLE_RATE, NUMBER_OF_JOINTS
 import pickle
-from time import sleep
+from time import sleep, time
 
 LEFT_ARM_INDICIES = (0, 6)
 RIGHT_ARM_INDICIES = (8, 14)
@@ -33,7 +33,7 @@ joint_limits: list = [
 def clamp(min_val: float, max_val: float, to_clamp: float) -> float:
     return min(max_val, max(min_val, to_clamp))
 
-def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points: tuple, right_points: tuple):
+def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points: tuple, right_points: tuple, root=None):
 
     with open(file_path, "rb") as file:
         all_dmps = pickle.load(file)
@@ -90,9 +90,11 @@ def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points
         first_position = dict(zip(recorded_joints, (p[0] for p in movement_paths)))
         goto(first_position, 3.0)
         for i in range(NEW_TIME_STEPS):
+            start_of_frame: float = time()
             for j in range(NUMBER_OF_JOINTS):
                 recorded_joints[j].goal_position = clamp(joint_limits[j][0], joint_limits[j][1], movement_paths[j][i])
-            sleep(SAMPLE_RATE)
+            root.update()
+            sleep(max(0, SAMPLE_RATE - (time()-start_of_frame)))
     except KeyboardInterrupt:
         pass
     finally:

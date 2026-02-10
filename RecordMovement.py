@@ -51,10 +51,11 @@ class MotionRecorder():
     
     async def update(self, halt_event: asyncio.Event):
         while not halt_event.is_set():
+            start_of_frame: float = time.time()
             if self.recording:
                 joint_values: list = [j.present_position for j in self.recorded_joints]
                 self.samples += joint_values
-            await asyncio.sleep(self.sample_rate)
+            await asyncio.sleep(max(0, self.sample_rate - (time.time() - start_of_frame)))
 
     def find_higest_num(self, dir: str) -> int:
         highest_num: int = 0
@@ -101,9 +102,6 @@ class MotionRecorder():
         dmp.learn_weights()
         return dmp
 
-    def run_starmap(self, grouped_samples):
-        return self.pool.starmap(MotionRecorder.dmp_helper, grouped_samples)
-
     def calculate_dmps(self) -> list:
         np_samples: np.ndarray = np.array(self.samples)
         number_of_samples: int = len(np_samples)
@@ -111,7 +109,7 @@ class MotionRecorder():
         tau: float = (number_of_samples / number_of_joints) * self.sample_rate
         grouped_samples = [(tau, self.sample_rate, np_samples[i::number_of_joints]) for i in range(number_of_joints)]
         
-        dmps = self.run_starmap(grouped_samples)
+        dmps = self.pool.starmap(MotionRecorder.dmp_helper, grouped_samples)
 
         return dmps
 
@@ -128,5 +126,8 @@ class MotionRecorder():
     async def send_client_command(self, writer: asyncio.StreamWriter, command: bytes):
         if len(command) < NEEDED_LENGTH:
             command += bytes([DUMMY]*(NEEDED_LENGTH - len(command)))
+        elif len(command) > NEEDED_LENGTH:
+            command = command[:NEEDED_LENGTH:]
+            print(f"WARNING: Command is too big, truncating to {command}")
         writer.write(command)
         await writer.drain()
