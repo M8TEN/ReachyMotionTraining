@@ -1,37 +1,30 @@
-from reachy_sdk import ReachySDK
-from DMP import joint_names
-
-IP = ""
-
-reachy = ReachySDK(IP)
-run = True
-
-recorded_joints: list = [
-    reachy.joints.l_shoulder_pitch,
-    reachy.joints.l_shoulder_roll,
-    reachy.joints.l_arm_yaw,
-    reachy.joints.l_elbow_pitch,
-    reachy.joints.l_forearm_yaw,
-    reachy.joints.l_wrist_pitch,
-    reachy.joints.l_wrist_roll,
-    reachy.joints.l_gripper,
-    reachy.joints.r_shoulder_pitch,
-    reachy.joints.r_shoulder_roll,
-    reachy.joints.r_arm_yaw,
-    reachy.joints.r_elbow_pitch,
-    reachy.joints.r_forearm_yaw,
-    reachy.joints.r_wrist_pitch,
-    reachy.joints.r_wrist_roll,
-    reachy.joints.r_gripper,
-    reachy.joints.neck_pitch,
-    reachy.joints.neck_roll,
-    reachy.joints.neck_yaw
+LEFT_VOLUME_LIMITS: list = [
+    (0.2670128785599509, 0.17793666141512263, 0.5045470562610281),    #Up
+    (0.3953221660406556, 0.17586779870874744, -0.39519877482349264),  #Down
+    (0.3123077093620117, 0.6103183116686676, -0.2853769545773958),    #Outer
+    (0.3399540036108459, 0.004753014205407358, -0.30996256578201375), #Inner
+    (0.3399540036108459, 0.004753014205407358, -0.30996256578201375), #Forward
+    (0.14888854103409055, 0.19211675356551672, -0.3661238591588166)   #Back
 ]
 
-while run:
-    inp = input("")
-    if inp == "e":
-        run = False
-    else:
-        for i in range(len(recorded_joints)):
-            print(f"{joint_names[i]} = {recorded_joints[i].present_position}")
+RIGHT_VOLUME_LIMITS: list = [
+    (0.22514097826417898, -0.13960405374265367, 0.5467782688288836),  #Up
+    (0.3417706829388676, -0.18127929831117182, -0.3996426656448221),  #Down
+    (0.3548514392175038, -0.5567124991918473, -0.2678984089740119),   #Outer
+    (0.3548514392175038, -0.5567124991918473, -0.2678984089740119),   #Inner
+    (0.6186213994503541, -0.21115431349809421, -0.09987708066364706), #Forward
+    (0.21701274404719764, -0.23382442685328939, -0.34396992216566813) #Back
+]
+
+for limit in [LEFT_VOLUME_LIMITS, RIGHT_VOLUME_LIMITS]:
+    x_min = min((p[0] for p in limit))
+    x_max = max((p[0] for p in limit))
+    y_min = min((p[1] for p in limit))
+    y_max = max((p[1] for p in limit))
+    z_min = min((p[2] for p in limit))
+    z_max = max((p[2] for p in limit))
+
+    print(f"Limits X: ({x_min}, {x_max})")
+    print(f"Limits Y: ({y_min}, {y_max})")
+    print(f"Limits Z: ({z_min}, {z_max})")
+    print("\n")

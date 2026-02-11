@@ -1,5 +1,4 @@
 import asyncio
-from time import sleep
 from RecordMovement import MotionRecorder
 
 PORT: int = 50056
@@ -15,33 +14,6 @@ CLOSE_CONNECTION: int = 5
 client_reader = None
 client_writer = None
 connection_event = asyncio.Event()
-
-class Test():
-    def __init__(self):
-        self.frames = 0
-        self.recording = False
-    
-    async def update(self, halt_event: asyncio.Event):
-        while not halt_event.is_set():
-            if self.recording:
-                self.frames += 1
-            await asyncio.sleep(SAMPLE_RATE)
-    
-    async def start_recording(self, start_event: asyncio.Event, halt_event: asyncio.Event):
-        while not halt_event.is_set():
-            await start_event.wait()
-            print("Starting recording")
-            self.frames = 0
-            self.recording = True
-    
-    async def stop_recording(self, stop_event: asyncio.Event, halt_event: asyncio.Event):
-        while not halt_event.is_set():
-            await stop_event.wait()
-            self.recording = False
-            if self.frames > 0:
-                print(f"Recorded {self.frames} frames")
-            else:
-                print("No samples recorded")
 
 async def establish_connection(port=PORT):
     print("Starting Server")

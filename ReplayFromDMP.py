@@ -3,9 +3,32 @@ from reachy_sdk.trajectory import goto
 from DMP import DMP, ALPHA_X, SAMPLE_RATE, NUMBER_OF_JOINTS
 import pickle
 from time import sleep, time
+import numpy as np
 
 LEFT_ARM_INDICIES = (0, 6)
 RIGHT_ARM_INDICIES = (8, 14)
+
+LEFT_SIDE: int = 0
+RIGHT_SIDE: int = 1
+
+LEFT_VOLUME_LIMITS: tuple = (
+    0.14888854103409055,  #x-min
+    0.3953221660406556,   #x-max
+    0.004753014205407358, #y-min
+    0.6103183116686676,   #y-max
+    -0.39519877482349264, #z-min
+    0.5045470562610281    #z-max
+)
+
+RIGHT_VOLUME_LIMITS: tuple = (
+    0.21701274404719764,  #x-min
+    0.6186213994503541,   #x-max
+    -0.5567124991918473,  #y-min
+    -0.13960405374265367, #y-max
+    -0.3996426656448221,  #z-min
+    0.5467782688288836    #z-max
+)
+
 
 # Limits as per Reachy 2023 Documentation
 joint_limits: list = [
@@ -33,7 +56,38 @@ joint_limits: list = [
 def clamp(min_val: float, max_val: float, to_clamp: float) -> float:
     return min(max_val, max(min_val, to_clamp))
 
-def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points: tuple, right_points: tuple, root=None):
+def limit_to_volume(reachy: ReachySDK, arm_paths: np.ndarray, side: int) -> np.ndarray:
+    if (side == LEFT_SIDE):
+        limits = LEFT_VOLUME_LIMITS
+        arm = reachy.l_arm
+    elif (side == RIGHT_SIDE):
+        limits = RIGHT_VOLUME_LIMITS
+        arm = reachy.r_arm
+    else:
+        print(f"WARNING: Unknown side {side}")
+        return arm_paths
+    
+    for i in range(len(arm_paths[0])): # Iterate over every 3D-Position in movement path
+        joint_angles = [p[i] for p in arm_paths]
+        pose = arm.forward_kinematics(joint_angles)
+        # In Reachy's end effector space, X = Forward, Y = Right, Z = Up
+        pose[0][3] = clamp(limits[0], limits[1], pose[0][3]) # X
+        pose[1][3] = clamp(limits[2], limits[3], pose[0][3]) # Y
+        pose[2][3] = clamp(limits[4], limits[5], pose[0][3]) # Z
+        joint_pos = arm.inverse_kinematics(pose)
+        for j in range(len(joint_pos)):
+            arm_paths[0][j] = joint_pos[j]
+            arm_paths[1][j] = joint_pos[j]
+            arm_paths[2][j] = joint_pos[j]
+            arm_paths[3][j] = joint_pos[j]
+            arm_paths[4][j] = joint_pos[j]
+            arm_paths[5][j] = joint_pos[j]
+            arm_paths[6][j] = joint_pos[j]
+    
+    return arm_paths
+
+
+def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points: tuple, right_points: tuple):
 
     with open(file_path, "rb") as file:
         all_dmps = pickle.load(file)
@@ -60,6 +114,17 @@ def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points
         new_movement_path = dmp.produce_movement(motion_start, motion_end, new_tau, phase)
         movement_paths.append(new_movement_path)
         NEW_TIME_STEPS = len(new_movement_path)
+
+    clamped_left_arm_joints = limit_to_volume(reachy, movement_paths[LEFT_ARM_INDICIES[0]:LEFT_ARM_INDICIES[1]+1:], LEFT_SIDE)
+    clamped_right_arm_joints = limit_to_volume(reachy, movement_paths[RIGHT_ARM_INDICIES[0]:RIGHT_ARM_INDICIES[1]+1:], RIGHT_SIDE)
+
+    for i in range(len(clamped_left_arm_joints)):
+        for j in range(len(clamped_left_arm_joints[i])):
+            movement_paths[i][j] = clamped_left_arm_joints[i][j]
+
+    for i in range(len(clamped_right_arm_joints)):
+        for j in range(len(clamped_right_arm_joints[i])):
+            movement_paths[i][j] = clamped_right_arm_joints[i][j]
 
     print("Turning on Reachy..")
     recorded_joints = [
@@ -93,10 +158,13 @@ def play_movement(reachy: ReachySDK, file_path: str, new_tau: float, left_points
             start_of_frame: float = time()
             for j in range(NUMBER_OF_JOINTS):
                 recorded_joints[j].goal_position = clamp(joint_limits[j][0], joint_limits[j][1], movement_paths[j][i])
-            root.update()
             sleep(max(0, SAMPLE_RATE - (time()-start_of_frame)))
     except KeyboardInterrupt:
         pass
     finally:
         reachy.turn_off_smoothly("reachy")
         reachy.turn_off("reachy")
+
+if __name__ == "__main__":
+    robot = ReachySDK(host="192.168.1.89")
+    play_movement(robot, "Motions/Motion1.pkl", 10.2, (None, None), (None, None))

@@ -98,7 +98,7 @@ def replay_on_robot() -> None:
     global reachy, loaded_file_path, slider, l_motion_start, l_motion_end, r_motion_start, r_motion_end
     log_positions("DebugLog.txt")
     play_button.configure(state="disabled")
-    play_movement(reachy, loaded_file_path, slider.get(), (l_motion_start, l_motion_end), (r_motion_start, r_motion_end), root)
+    play_movement(reachy, loaded_file_path, slider.get(), (l_motion_start, l_motion_end), (r_motion_start, r_motion_end))
     play_button.configure(state="enabled")
 
 def reset_motion() -> None:
