@@ -12,26 +12,26 @@ LEFT_SIDE: int = 0
 RIGHT_SIDE: int = 1
 
 LEFT_VOLUME_LIMITS: tuple = (
-    0.2970021372738335,    #x-min
-    0.5150536650457043,    #x-max
-    0.04474292855345502,   #y-min
-    0.4065434369531554,    #y-max
-    -0.412436990943232444, #z-min
-    -0.022780532069723743  #z-max
+     0.1,  #x-min
+     0.65, #x-max
+     0.1,  #y-min
+     0.65, #y-max
+    -0.35, #z-min
+     0.65  #z-max
 )
 
 RIGHT_VOLUME_LIMITS: tuple = (
-    0.21701274404719764,  #x-min
-    0.6186213994503541,   #x-max
-    -0.5567124991918473,  #y-min
-    -0.13960405374265367, #y-max
-    -0.3996426656448221,  #z-min
-    0.5467782688288836    #z-max
+     0.1,  #x-min
+     0.65, #x-max
+    -0.65, #y-max
+    -0.1,  #y-min
+    -0.35, #z-min
+     0.65  #z-max
 )
 
 
 # Limits as per Reachy 2023 Documentation
-joint_limits: list = [
+JOINT_LIMITS: list = [
     (-150, 90), # l_shoulder_pitch
     (-10, 180), # l_shoulder_roll
     (-90, 90), # l_arm_yaw
@@ -58,7 +58,7 @@ def clamp(min_val: float, max_val: float, to_clamp: float) -> float:
 
 def validate_motor_positions(joint_positions, start_offset) -> bool:
     for j in range(len(joint_positions)):
-            joint_min, joint_max = joint_limits[j+start_offset]
+            joint_min, joint_max = JOINT_LIMITS[j+start_offset]
             if joint_positions[j] < joint_min or joint_positions[j] > joint_max:
                 return False
     
@@ -76,7 +76,7 @@ def limit_to_volume(reachy: ReachySDK, arm_paths: np.ndarray, side: int) -> None
 
     last_pos = [p[0] for p in arm_paths]
     for i in range(len(last_pos)):
-        last_pos[i] = clamp(joint_limits[i+limit_offset][0], joint_limits[i+limit_offset][1], last_pos[i])
+        last_pos[i] = clamp(JOINT_LIMITS[i+limit_offset][0], JOINT_LIMITS[i+limit_offset][1], last_pos[i])
     last_pose = arm.forward_kinematics(last_pos)
 
     for i in range(1, len(arm_paths[0])):
