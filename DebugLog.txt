@@ -1,0 +1,4 @@
+l_motion_start: None
+l_motion_end: None
+r_motion_start: [-23.33, -19.91, -8.88, -35.07, -15.03, -19.25, 23.73]
+r_motion_end: None
