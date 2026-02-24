@@ -5,8 +5,8 @@ import pickle
 from time import sleep, time
 import numpy as np
 
-LEFT_ARM_INDICIES = (0, 6)
-RIGHT_ARM_INDICIES = (8, 14)
+LEFT_ARM_INDICIES: tuple = (0, 6)
+RIGHT_ARM_INDICIES: tuple = (8, 14)
 
 LEFT_SIDE: int = 0
 RIGHT_SIDE: int = 1
