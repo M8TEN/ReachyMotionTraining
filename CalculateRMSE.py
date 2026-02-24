@@ -14,6 +14,9 @@ def rmse(original, predicted) -> float:
     s = sum([(original[i] - predicted[i])**2 for i in range(n)])
     return sqrt(s/n)
 
+def float_to_xlsx_string(num: float) -> str:
+    return str(num).replace(".", ",")
+
 upper_path: str = "MotionArchive/VP"
 if len(sys.argv) > 1:
     try:
@@ -49,10 +52,10 @@ with open(log_path, "a") as log_file:
                 end_pos = dmp.original_path[-1]
                 recreated_path = dmp.produce_movement(start_pos, end_pos, dmp.tau, phase)
                 errors[i] = rmse(dmp.original_path, recreated_path)
-                log_file.write(f"  {joint_names[i]} RMSE: {errors[i]}\n")
+                log_file.write(f"  {joint_names[i]} RMSE: {float_to_xlsx_string(errors[i])}\n")
             
             average_rmse: float = sum(errors) / len(errors)
-            log_file.write(f"Average RMSE: {average_rmse}° \n\n")
+            log_file.write(f"Average RMSE: {float_to_xlsx_string(average_rmse)} degrees\n\n")
         dir_num += 1
         dir_path  = upper_path + str(dir_num)
         print("\n")
