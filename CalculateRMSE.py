@@ -56,6 +56,7 @@ with open(log_path, "a") as log_file:
             
             average_rmse: float = sum(errors) / len(errors)
             log_file.write(f"Average RMSE: {float_to_xlsx_string(average_rmse)} degrees\n\n")
+        
         dir_num += 1
         dir_path  = upper_path + str(dir_num)
         print("\n")
